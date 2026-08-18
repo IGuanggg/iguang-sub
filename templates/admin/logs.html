@@ -1,0 +1,20 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<div class="page-head">
+  <div><h1>审计日志</h1><p>记录后台关键操作，方便排查误删、误改和恢复记录。</p></div>
+  <a class="secondary-button" href="{{ url_for('traffic_admin') }}">流量审计</a>
+</div>
+<article class="panel">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>时间</th><th>动作</th><th>对象</th><th>内容</th><th>操作者</th></tr></thead>
+      <tbody>
+        {% for item in logs %}
+        <tr><td>{{ item.created_at }}</td><td><span class="badge">{{ item.action }}</span></td><td>{{ item.target_type }} {{ item.target_id }}</td><td>{{ item.message }}</td><td>{{ item.actor }}<small>{{ item.ip }}</small></td></tr>
+        {% else %}<tr><td colspan="5">还没有操作日志。</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "admin/pagination.html" %}
+</article>
+{% endblock %}

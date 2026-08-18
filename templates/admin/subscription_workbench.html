@@ -1,0 +1,125 @@
+{% set subs_status = subs_check_status if subs_check_status is defined else status %}
+{% set subs_api_state = subs_check_api if subs_check_api is defined else api %}
+{% set cfg = subs_check_config if subs_check_config is defined else config %}
+{% set recent_runs = subs_check_runs if subs_check_runs is defined else runs %}
+{% set current_mode = engine.settings.mode %}
+{% set current_next = request.full_path.rstrip('?') if request.full_path else url_for('nodes_admin') %}
+<section class="panel subscription-workbench control-console" data-nodes-status-pool data-status-url="{{ url_for('nodes_status_json', q=filters.q if filters is defined else '', region=filters.region if filters is defined else '', status=filters.status if filters is defined else '', protocol=filters.protocol if filters is defined else '') }}">
+  <div class="console-hero">
+    <div class="console-copy">
+      <span class="panel-kicker">订阅输出控制台</span>
+      <h2>会员当前拿到：<span data-status-field="default_output_label">{{ engine.default_output_label }}</span></h2>
+      <p data-status-field="engine_reason">{{ engine.reason }}</p>
+      <div class="console-badges">
+        <span class="engine-pill {{ engine.status_tone }}" data-status-field="engine_pill">{{ engine.active_label }} · {{ engine.default_output_count }} 个</span>
+        <span>全量池 <b data-status-field="asset_pool_count">{{ engine.asset_pool_count }}</b></span>
+        <span>优选池 <b data-status-field="subs_count">{{ subs_status.node_count }}</b></span>
+        <span>稳定池 <b data-status-field="quality_stable_3">{{ engine.quality.stable_3 }}</b></span>
+      </div>
+    </div>
+    <div class="console-verdict {{ engine.status_tone }}">
+      <small>默认下发</small>
+      <strong data-status-field="default_output_count">{{ engine.default_output_count }}</strong>
+      <span data-status-field="status_detail">{{ engine.status_detail }}</span>
+    </div>
+  </div>
+
+  <div class="strategy-switcher" aria-label="默认订阅输出策略">
+    {% for item in engine.settings.mode_options %}
+    <form method="post" action="{{ url_for('update_subscription_engine_route') }}" class="strategy-option {{ 'active' if current_mode == item.value else '' }}">
+      <input type="hidden" name="next" value="{{ current_next }}">
+      <input type="hidden" name="mode" value="{{ item.value }}">
+      <input type="hidden" name="min_output_nodes" value="{{ engine.settings.min_output_nodes }}">
+      <button type="submit">
+        <span>{{ item.label }}</span>
+        <b>
+          {% if item.value == "local" %}
+          下发 {{ engine.asset_pool_count }} 个
+          {% elif item.value == "strict" %}
+          下发 {{ subs_status.node_count }} 个
+          {% else %}
+          始终用优选
+          {% endif %}
+        </b>
+        <em>{{ item.hint }}</em>
+      </button>
+    </form>
+    {% endfor %}
+  </div>
+
+  <form class="threshold-strip" method="post" action="{{ url_for('update_subscription_engine_route') }}">
+    <input type="hidden" name="next" value="{{ current_next }}">
+    <input type="hidden" name="mode" value="{{ current_mode }}">
+    <div>
+      <b>优选池目标数量</b>
+      <small>用于判断是否进入“节点紧张”状态，不再触发回退全量。</small>
+    </div>
+    <label>
+      <span>目标节点数</span>
+      <input name="min_output_nodes" value="{{ engine.settings.min_output_nodes }}" inputmode="numeric">
+    </label>
+    <button class="secondary-button" type="submit">保存阈值</button>
+  </form>
+
+  <div class="pool-flow">
+    <article>
+      <span>1</span>
+      <div><b>全量资产池</b><strong data-status-field="asset_pool_count">{{ engine.asset_pool_count }}</strong><small>同步上游和导入文件都会先进入这里，不会因为优选被删除。</small></div>
+    </article>
+    <article class="{{ 'ok' if subs_status.ok else 'danger' }}">
+      <span>2</span>
+      <div><b>subs-check 优选池</b><strong data-status-field="subs_count">{{ subs_status.node_count }}</strong><small data-status-field="subs_message">阈值 {{ engine.min_output_nodes }} · {{ subs_status.message }}</small></div>
+    </article>
+    <article class="{{ engine.status_tone }}">
+      <span>3</span>
+      <div><b>会员默认订阅</b><strong data-status-field="default_output_count">{{ engine.default_output_count }}</strong><small data-status-field="status_detail">{{ engine.status_detail }}</small></div>
+    </article>
+  </div>
+
+  <div class="quality-round-strip">
+    <div class="quality-round-heading">
+      <span class="panel-kicker">连续质量判定</span>
+      <b>{{ engine.quality.sample_label }}</b>
+      <small>每轮来自 subs-check 自动输出；刷新页面不会增加轮次。</small>
+    </div>
+    <div class="quality-round-metrics">
+      <div class="l3"><small>本轮 L3</small><strong data-status-field="quality_current_l3">{{ engine.quality.current_l3 }}</strong><span>达到速度门槛</span></div>
+      <div class="stable"><small>连续 3/3</small><strong data-status-field="quality_stable_3">{{ engine.quality.stable_3 }}</strong><span>稳定优选资产</span></div>
+      <div class="intermittent"><small>间歇 2/3</small><strong data-status-field="quality_intermittent_2">{{ engine.quality.intermittent_2 }}</strong><span>建议继续观察</span></div>
+      <div><small>身份匹配率</small><strong data-status-field="quality_match_percent">{{ engine.quality.match_percent }}%</strong><span data-status-field="quality_match_detail">{{ engine.quality.matched_output_count }}/{{ engine.quality.output_count }} · {{ engine.quality.checked_label }}</span></div>
+    </div>
+  </div>
+
+  <div class="status-graph console-status" aria-label="优选检测状态">
+    <div class="status-graph-head">
+      <b>检测状态池</b>
+      <span>自动刷新 · <i data-status-field="checked_label">刚刚</i></span>
+    </div>
+    <div class="status-bars">
+      <div>
+        <span>测活进度</span><b data-status-field="alive_percent">{{ (subs_api_state.progress * 100 // subs_api_state.proxy_count) if subs_api_state.proxy_count else 0 }}%</b>
+        <i><em data-status-bar="alive" style="width:{{ (subs_api_state.progress * 100 // subs_api_state.proxy_count) if subs_api_state.proxy_count else 0 }}%"></em></i>
+      </div>
+      <div>
+        <span>可用比例</span><b data-status-field="available_percent">{{ (subs_api_state.available * 100 // subs_api_state.proxy_count) if subs_api_state.proxy_count else 0 }}%</b>
+        <i><em data-status-bar="available" style="width:{{ (subs_api_state.available * 100 // subs_api_state.proxy_count) if subs_api_state.proxy_count else 0 }}%"></em></i>
+      </div>
+      <div>
+        <span>测速通过</span><b data-status-field="speed_percent">{{ (subs_api_state.speed_pass * 100 // subs_api_state.speed_done) if subs_api_state.speed_done else 0 }}%</b>
+        <i><em data-status-bar="speed" style="width:{{ (subs_api_state.speed_pass * 100 // subs_api_state.speed_done) if subs_api_state.speed_done else 0 }}%"></em></i>
+      </div>
+    </div>
+    <div class="console-timeline">
+      <div class="{{ 'active' if subs_api_state.checking else '' }}"><b>{{ "检测中" if subs_api_state.checking else "检测空闲" if subs_api_state.ok else "检测未连接" }}</b><small data-status-field="check_progress">进度 {{ subs_api_state.progress }}/{{ subs_api_state.proxy_count }} · 通过 {{ subs_api_state.available }}</small></div>
+      <div><b>定时检测</b><small>{{ cfg.check_interval if cfg is defined else 120 }} 分钟一轮</small></div>
+      <div><b>最近操作</b><small>{% if recent_runs %}{{ recent_runs[0].action }} · {{ recent_runs[0].created_label }}{% else %}暂无记录{% endif %}</small></div>
+    </div>
+  </div>
+
+  <div class="primary-actions console-actions">
+    <a class="primary-button" href="{{ url_for('nodes_admin') }}#upstreams">导入订阅源</a>
+    <form method="post" action="{{ url_for('sync_all_upstreams_route') }}"><button class="secondary-button" type="submit"><svg><use href="#i-refresh"></use></svg>同步资产池</button></form>
+    <form method="post" action="{{ url_for('trigger_subs_check_route') }}"><button class="secondary-button" type="submit"><svg><use href="#i-refresh"></use></svg>立即重检优选</button></form>
+    <form method="post" action="{{ url_for('import_subs_check_output_route') }}"><button class="secondary-button" type="submit"><svg><use href="#i-test"></use></svg>导入优选结果</button></form>
+  </div>
+</section>

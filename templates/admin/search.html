@@ -1,0 +1,50 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<div class="page-head">
+  <div><h1>全局搜索</h1><p>搜索节点、用户、流量事件、上游订阅和后台日志。</p></div>
+  <form class="inline-filter" method="get" action="{{ url_for('admin_search') }}">
+    <input name="q" value="{{ results.q }}" placeholder="输入节点、IP、ASN、用户或动作">
+    <button class="secondary-button" type="submit"><svg><use href="#i-search"></use></svg>搜索</button>
+  </form>
+</div>
+
+{% if not results.q %}
+<section class="panel"><div class="empty">输入关键词后开始搜索。</div></section>
+{% elif results.total == 0 %}
+<section class="panel">
+  <div class="empty">没有匹配项。可以去节点页或用户页检查筛选条件。</div>
+  <div class="head-actions"><a class="secondary-button" href="{{ url_for('nodes_admin') }}">节点管理</a><a class="secondary-button" href="{{ url_for('users_admin') }}">用户管理</a></div>
+</section>
+{% else %}
+<section class="search-results">
+  {% for title, items, kind in [
+    ("节点", results.nodes, "node"),
+    ("上游订阅", results.upstreams, "upstream"),
+    ("用户", results.users, "user"),
+    ("流量事件", results.events, "traffic"),
+    ("审计日志", results.logs, "log")
+  ] %}
+  <article class="panel">
+    <div class="section-title"><h2>{{ title }}</h2><span>{{ items|length }} 条</span></div>
+    <div class="result-list">
+      {% for item in items %}
+      {% if kind == "node" %}
+      <a href="{{ url_for('nodes_admin', asset_key=item.asset_key, q=results.q) }}"><b>{{ item.display }}</b><small>{{ item.source_label }} · {{ item.endpoint_host }} · {{ item.country_label }} · {{ item.asn }}</small></a>
+      {% elif kind == "upstream" %}
+      <a href="{{ url_for('nodes_admin', q=item.name) }}"><b>{{ item.name }}</b><small>{{ item.verify_status }} · {{ item.verify_label }} · {{ item.last_error or item.last_updated_label }}</small></a>
+      {% elif kind == "user" %}
+      <a href="{{ url_for('subscriber_detail', user_id=item.id) }}"><b>{{ item.name }}</b><small>{{ item.status }} · {{ item.traffic_key or "未设置识别名" }}</small></a>
+      {% elif kind == "traffic" %}
+      <a href="{{ url_for('traffic_admin', q=results.q) }}"><b>{{ item.message or item.action or "流量事件" }}</b><small>{{ item.source_ip or "-" }} · {{ item.node or "-" }} · {{ item.created_at }}</small></a>
+      {% else %}
+      <a href="{{ url_for('audit_logs_admin') }}"><b>{{ item.action }}</b><small>{{ item.target_type }} {{ item.target_id }} · {{ item.actor }} · {{ item.created_at }}</small></a>
+      {% endif %}
+      {% else %}
+      <div class="empty">暂无匹配。</div>
+      {% endfor %}
+    </div>
+  </article>
+  {% endfor %}
+</section>
+{% endif %}
+{% endblock %}

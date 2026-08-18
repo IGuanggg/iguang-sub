@@ -1,0 +1,78 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>订阅策略中心</h1>
+    <p>这里决定会员默认订阅到底发全量资产池，还是发 subs-check 检测后的优选池。</p>
+  </div>
+  <div class="head-actions">
+    <a class="secondary-button" href="{{ url_for('nodes_admin') }}#subs-check-settings">回到检测规则</a>
+    {% if status.admin_url %}<a class="secondary-button" href="{{ status.admin_url }}" target="_blank" rel="noreferrer">打开 subs-check</a>{% endif %}
+  </div>
+</div>
+
+{% include "admin/subscription_workbench.html" %}
+
+<section class="metric-grid four">
+  <article class="metric-card {{ 'green' if engine.status_tone == 'ok' else 'red' if engine.status_tone == 'danger' else 'amber' }}"><span class="metric-icon"><svg><use href="#i-shield"></use></svg></span><small>默认下发</small><strong>{{ engine.default_output_count }}</strong><p>{{ engine.default_output_label }} · {{ engine_mode_label }}</p></article>
+  <article class="metric-card {{ 'green' if status.ok else 'red' }}"><span class="metric-icon"><svg><use href="#i-test"></use></svg></span><small>优选可读</small><strong>{{ "正常" if status.ok else "异常" }}</strong><p>{{ status.message }}</p></article>
+  <article class="metric-card teal"><span class="metric-icon"><svg><use href="#i-node"></use></svg></span><small>本轮 L3</small><strong>{{ engine.quality.current_l3 }}</strong><p>输出 {{ engine.quality.output_count }} · 匹配 {{ engine.quality.match_percent }}%</p></article>
+  <article class="metric-card blue"><span class="metric-icon"><svg><use href="#i-shield"></use></svg></span><small>三轮稳定</small><strong>{{ engine.quality.stable_3 }}</strong><p>{{ engine.quality.sample_label }} · 间歇 {{ engine.quality.intermittent_2 }}</p></article>
+</section>
+
+<section class="workspace">
+  <article class="panel">
+    <div class="section-title"><h2>订阅输出映射</h2><span>默认入口按当前策略输出；优选异常时仅使用手动应急池</span></div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>入口</th><th>策略</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><code>/</code></td><td>后台入口</td><td>打开管理界面，不再作为订阅入口</td></tr>
+          <tr><td><code>/dingyue</code> / <code>/dingyue/clash</code></td><td>admin 会员订阅</td><td>绑定会员 admin，按当前默认策略输出</td></tr>
+          <tr><td><code>/dingyue/best</code> / <code>/dingyue/best/clash</code></td><td>会员优选</td><td>强制返回 subs-check 检测后的节点</td></tr>
+          <tr><td><code>/dingyue/v2ray</code> / <code>/dingyue/surge</code></td><td>客户端格式</td><td>同一个 admin 会员短链，按客户端格式输出</td></tr>
+          <tr><td><code>/sub/&lt;token&gt;/best</code></td><td>会员优选</td><td>会员鉴权仍由本后台处理</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </article>
+
+  <article class="panel">
+    <div class="section-title"><h2>配置状态</h2><span>{{ config.path }}</span></div>
+    <div class="check-grid">
+      <div class="check-item {{ 'ok' if config.exists else '' }}"><span>{{ "通过" if config.exists else "风险" }}</span><div><b>配置文件</b><small>{{ "已找到" if config.exists else "不存在，保存规则时会自动创建" }}</small></div></div>
+      <div class="check-item {{ 'ok' if config.writable else '' }}"><span>{{ "通过" if config.writable else "风险" }}</span><div><b>写入权限</b><small>{{ "可写" if config.writable else "当前服务可能无法写入配置目录" }}</small></div></div>
+      <div class="check-item {{ 'ok' if config.recipient_count else '' }}"><span>{{ "通过" if config.recipient_count else "待配" }}</span><div><b>真实通知</b><small>{{ config.recipient_count }} 个接收地址</small></div></div>
+      <div class="check-item {{ 'ok' if config.sub_store_enabled else '' }}"><span>{{ "已开" if config.sub_store_enabled else "未开" }}</span><div><b>Sub-Store</b><small>高级订阅编排，当前不作为主路径</small></div></div>
+    </div>
+  </article>
+
+  <article class="panel">
+    <div class="section-title"><h2>检测样本</h2><span>{{ status.base_url }}</span></div>
+    {% if status.sample %}
+      <div class="tag-list">
+        {% for item in status.sample %}<span>{{ item }}</span>{% endfor %}
+      </div>
+    {% else %}
+      <div class="empty">subs-check 还没有输出可用节点。启动容器后等待第一次检测完成，或回到节点页检查上游源。</div>
+    {% endif %}
+  </article>
+
+  <article class="panel">
+    <div class="section-title"><h2>最近操作</h2><span>本后台记录</span></div>
+    <div class="check-grid">
+      {% for run in runs %}
+      <div class="check-item {{ run.tone }}"><span>{{ run.status }}</span><div><b>{{ run.action }} · {{ run.created_label }}</b><small>{{ run.message }}</small></div></div>
+      {% else %}
+      <div class="empty">还没有触发检测或导入记录。</div>
+      {% endfor %}
+    </div>
+  </article>
+
+  <article class="panel">
+    <div class="section-title"><h2>subs-check 日志</h2><span>最近 80 行</span></div>
+    <pre class="log-snippet">{% for line in logs %}{{ line }}
+{% else %}暂无日志。{% endfor %}</pre>
+  </article>
+</section>
+{% endblock %}

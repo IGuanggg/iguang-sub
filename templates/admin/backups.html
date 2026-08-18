@@ -1,0 +1,40 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<div class="page-head">
+  <div><h1>备份恢复</h1><p>恢复数据库前会自动再保存一份当前数据库。</p></div>
+  <div class="head-actions">
+    <form method="post" action="{{ url_for('create_backup_route') }}"><button class="primary-button" type="submit">立即创建备份</button></form>
+    <form method="post" action="{{ url_for('backup_drill_route') }}"><button class="secondary-button" type="submit">执行恢复演练</button></form>
+    <a class="secondary-button" href="{{ url_for('download_database_backup') }}">下载当前数据库备份</a>
+  </div>
+</div>
+<section class="dashboard-grid">
+  <article class="panel">
+    <div class="section-title"><h2>备份状态</h2><span>{{ "可写" if backup_status.writable else "不可写" }}</span></div>
+    <dl class="detail-list">
+      <dt>备份目录</dt><dd>{{ backup_status.dir }}</dd>
+      <dt>数据库备份</dt><dd>{{ backup_status.database.name }} · {{ backup_status.database.created }}</dd>
+      <dt>节点备份</dt><dd>{{ backup_status.nodes.name }} · {{ backup_status.nodes.created }}</dd>
+      <dt>用户备份</dt><dd>{{ backup_status.subscribers.name }} · {{ backup_status.subscribers.created }}</dd>
+      <dt>恢复演练</dt><dd>{{ backup_status.drill.label }} · {{ backup_status.drill.checked_label }}</dd>
+    </dl>
+  </article>
+  <article class="panel">
+    <div class="section-title"><h2>恢复影响</h2><span>{{ backup_status.drill.label }}</span></div>
+    <div class="empty">恢复数据库会覆盖当前用户、节点、上游、流量和审计数据。系统会在恢复前自动创建当前数据库安全备份。演练只检查备份文件完整性，不覆盖生产库。</div>
+    <p class="muted-line">{{ backup_status.drill.message }}</p>
+  </article>
+</section>
+<article class="panel">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>文件</th><th>大小</th><th>时间</th><th>操作</th></tr></thead>
+      <tbody>
+        {% for backup in backups %}
+        <tr><td>{{ backup.name }}</td><td>{{ backup.size }}</td><td>{{ backup.created }}</td><td><form method="post" action="{{ url_for('restore_backup', name=backup.name) }}" onsubmit="return confirm('恢复会覆盖当前数据库，已自动先备份当前库。确定恢复吗？')"><button class="danger-button compact" type="submit">恢复</button></form></td></tr>
+        {% else %}<tr><td colspan="4">还没有数据库备份。</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</article>
+{% endblock %}

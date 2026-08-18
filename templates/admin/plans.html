@@ -1,0 +1,41 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<div class="page-head">
+  <div><h1>套餐方案</h1><p>把常用天数和流量做成模板，创建用户时一键套用。</p></div>
+  <a class="secondary-button" href="{{ url_for('users_admin') }}">返回用户</a>
+</div>
+<section class="dashboard-grid">
+  <form class="panel form-grid" method="post" action="{{ url_for('create_plan') }}">
+    <div class="section-title"><h2>新增套餐</h2><span>开用户更快</span></div>
+    <label>套餐名<input name="name" placeholder="例如：专业版"></label>
+    <label>有效天数<input name="days" value="30" inputmode="numeric"></label>
+    <label>总流量 GB<input name="total_gb" value="200" inputmode="decimal"></label>
+    <label>备注<input name="note" placeholder="可选"></label>
+    <button type="submit">创建套餐</button>
+  </form>
+  <article class="panel">
+    <div class="section-title"><h2>运营建议</h2><span>稳一点</span></div>
+    <div class="hint-list">
+      <p>测试、月付、季付建议分开做模板。</p>
+      <p>总流量填 0 表示不限流量。</p>
+      <p>模板只影响新用户，不会自动改老用户。</p>
+    </div>
+  </article>
+</section>
+<article class="panel">
+  <div class="section-title"><h2>套餐列表</h2><span>{{ plans|length }} 个</span></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>套餐</th><th>天数</th><th>流量</th><th>备注</th><th>操作</th></tr></thead>
+      <tbody>
+        {% for plan in plans %}
+        <tr>
+          <td><b>{{ plan.name }}</b></td><td>{{ plan.days }}</td><td>{{ plan.total_label }}</td><td>{{ plan.note }}</td>
+          <td><form method="post" action="{{ url_for('delete_plan', plan_id=plan.id) }}" onsubmit="return confirm('确定删除这个套餐模板吗？')"><button class="icon-action danger-text">×</button></form></td>
+        </tr>
+        {% else %}<tr><td colspan="5">还没有套餐模板。</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</article>
+{% endblock %}

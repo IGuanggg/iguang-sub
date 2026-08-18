@@ -1,0 +1,37 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>账号安全</h1>
+    <p>管理后台登录账号、密码风险和当前会话。</p>
+  </div>
+  <div class="head-actions">
+    <a class="secondary-button" href="{{ url_for('admin_checks') }}">上线检查</a>
+    <a class="secondary-button" href="{{ url_for('logout') }}">退出登录</a>
+  </div>
+</div>
+
+<section class="dashboard-grid account-grid">
+  <article class="panel">
+    <div class="section-title"><h2>当前账号</h2><span>{{ "存在风险" if default_password else "正常" }}</span></div>
+    <dl class="detail-list">
+      <dt>用户名</dt><dd>{{ username }}</dd>
+      <dt>默认密码</dt><dd><span class="badge {{ 'danger' if default_password else 'ok' }}">{{ "仍在使用 admin/admin" if default_password else "已修改" }}</span></dd>
+      <dt>订阅 Token</dt><dd>{{ "已启用" if checks.subscription_token_enabled else "未启用" }}</dd>
+      <dt>公网地址</dt><dd>{{ checks.public_base_url or "未设置 PUBLIC_BASE_URL" }}</dd>
+    </dl>
+    {% if default_password %}
+    <div class="warning-note">后台仍在使用默认密码，请发布前立即修改。</div>
+    {% endif %}
+  </article>
+
+  <form class="panel form-grid" method="post" action="{{ url_for('change_password') }}">
+    <div class="section-title"><h2>修改密码</h2><span>立即生效</span></div>
+    <input type="hidden" name="next" value="{{ url_for('account_admin') }}">
+    <label>旧密码<input name="old_password" type="password" autocomplete="current-password" required></label>
+    <label>新密码<input name="new_password" type="password" autocomplete="new-password" required minlength="4"></label>
+    <label>确认新密码<input name="confirm_password" type="password" autocomplete="new-password" required minlength="4"></label>
+    <button type="submit">保存新密码</button>
+  </form>
+</section>
+{% endblock %}

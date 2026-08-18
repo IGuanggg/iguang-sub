@@ -1,0 +1,141 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<div class="page-head">
+  <div><h1>流量监控与审计</h1><p>订阅访问会被记录为审计事件；会员实际代理用量必须由 Xray / sing-box 节点端上报。</p></div>
+  <form class="inline-filter" method="get" action="{{ url_for('traffic_admin') }}" data-auto-submit>
+    <select name="range">
+      {% for value, label in [("1h", "近 1 小时"), ("24h", "近 24 小时"), ("7d", "近 7 天"), ("30d", "近 30 天")] %}
+      <option value="{{ value }}" {% if filters.range == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <select name="protocol"><option value="">协议全部</option>{% for item in protocols %}<option value="{{ item.label }}" {% if filters.protocol == item.label %}selected{% endif %}>{{ item.label }}</option>{% endfor %}</select>
+    <select name="risk"><option value="">风险全部</option>{% for item in ["低","中","高","严重"] %}<option value="{{ item }}" {% if filters.risk == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select>
+    <input name="q" value="{{ filters.q }}" placeholder="搜索用户 / IP / 节点 / 动作">
+    <button class="secondary-button" type="submit"><svg><use href="#i-filter"></use></svg>筛选</button>
+    <a class="secondary-button" href="{{ url_for('traffic_admin') }}">清空</a>
+    <a class="secondary-button" href="{{ url_for('export_traffic_csv', range=filters.range, risk=filters.risk, protocol=filters.protocol, q=filters.q) }}">导出 CSV</a>
+  </form>
+</div>
+
+<section class="metric-grid four">
+  <article class="metric-card teal"><span class="metric-icon"><svg><use href="#i-traffic"></use></svg></span><small>最近上报带宽估算</small><strong>{{ traffic.bandwidth_label }}</strong><p>订阅访问只做审计，不扣会员流量</p></article>
+  <article class="metric-card blue"><span class="metric-icon"><svg><use href="#i-user"></use></svg></span><small>今日连接数</small><strong>{{ traffic.connections_label }}</strong><p>事件总数 {{ traffic.event_count }}</p></article>
+  <article class="metric-card amber"><span class="metric-icon"><svg><use href="#i-log"></use></svg></span><small>异常请求</small><strong>{{ traffic.anomalies }}</strong><p>风险队列待审</p></article>
+  <article class="metric-card red"><span class="metric-icon"><svg><use href="#i-trash"></use></svg></span><small>封禁 IP</small><strong>{{ traffic.blocked_ips }}</strong><p>按上报 action 统计</p></article>
+</section>
+
+<section class="panel">
+  <div class="section-title"><h2>接入状态</h2><span>traffic_key 匹配</span></div>
+  <div class="geo-summary">
+    <div><small>最近上报</small><strong>{{ ingestion.last_report_label }}</strong></div>
+    <div><small>已匹配用户</small><strong>{{ ingestion.matched }}</strong></div>
+    <div><small>未匹配识别名</small><strong>{{ ingestion.unmatched }}</strong></div>
+  </div>
+  {% if ingestion.queue %}
+  <div class="alert-list">
+    {% for item in ingestion.queue %}
+    <div class="alert-item"><span class="badge warn">未匹配</span><div><b>{{ item.traffic_key }}</b><small>{{ item.source_ip or "-" }} · {{ item.node or "-" }} · {{ item.created_at }}</small></div></div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+
+{% if proxy_event_count == 0 %}
+<section class="panel integration-guide">
+  <div class="section-title"><h2>代理流量上报未接入</h2><span>真实会员用量入口</span></div>
+  <p>后台现在会记录用户拉取订阅的访问事件，但这不是代理节点消耗的 GB。要统计会员实际用量，需要在 Xray / sing-box 节点或网关侧调用 <code>/api/traffic/report</code>。</p>
+  <pre><code># Xray-core 推荐：每 5 分钟读取并 reset 统计，按增量累加到会员
+python3 scripts/xray_usage_collector.py \
+  --backend xray \
+  --xray-bin /usr/local/bin/xray \
+  --xray-api 127.0.0.1:10085 \
+  --reset \
+  --report-url {{ base or "https://sub.0909106.xyz" }}/api/traffic/report \
+  --token 你的UPDATE_TOKEN
+
+# 直接上报 JSON 时，增量请带 mode=delta 或 delta_bytes
+POST /api/traffic/report
+{
+  "traffic_key": "user@example.com",
+  "upload": 1048576,
+  "download": 5242880,
+  "mode": "delta",
+  "source_ip": "203.0.113.10",
+  "node": "HK-01",
+  "protocol": "vless"
+}</code></pre>
+</section>
+{% endif %}
+
+<section class="dashboard-grid traffic-layout">
+  <article class="panel wide">
+    <div class="section-title">
+      <h2>连接趋势</h2>
+      <div class="segmented">
+        <a class="{{ 'active' if filters.range == '1h' else '' }}" href="{{ url_for('traffic_admin', range='1h', risk=filters.risk, protocol=filters.protocol, q=filters.q) }}">1 小时</a>
+        <a class="{{ 'active' if filters.range == '24h' else '' }}" href="{{ url_for('traffic_admin', range='24h', risk=filters.risk, protocol=filters.protocol, q=filters.q) }}">24 小时</a>
+        <a class="{{ 'active' if filters.range == '7d' else '' }}" href="{{ url_for('traffic_admin', range='7d', risk=filters.risk, protocol=filters.protocol, q=filters.q) }}">7 天</a>
+        <a class="{{ 'active' if filters.range == '30d' else '' }}" href="{{ url_for('traffic_admin', range='30d', risk=filters.risk, protocol=filters.protocol, q=filters.q) }}">30 天</a>
+      </div>
+    </div>
+    <div class="chart-legend"><span class="legend teal">总带宽</span><span class="legend blue">下行</span><span class="legend green">上行</span><span class="chart-max">峰值 {{ chart.max_label }}</span></div>
+    <div class="chart-frame {{ '' if chart.has_data else 'is-empty' }}">
+      <svg class="line-chart tall" viewBox="0 0 560 220" role="img" aria-label="连接趋势">
+        <g class="grid-lines"><line x1="0" y1="45" x2="560" y2="45"/><line x1="0" y1="105" x2="560" y2="105"/><line x1="0" y1="165" x2="560" y2="165"/><line x1="0" y1="210" x2="560" y2="210"/></g>
+        <polyline class="line teal-line" points="{{ chart.total_points }}"/>
+        <polyline class="line blue-line dashed" points="{{ chart.download_points }}"/>
+        <polyline class="line green-line dashed" points="{{ chart.upload_points }}"/>
+      </svg>
+      {% if not chart.has_data %}<div class="chart-empty">当前时间范围内暂无流量快照。</div>{% endif %}
+    </div>
+    <div class="chart-axis">{% for label in chart.labels[::(chart.labels|length // 6 if chart.labels|length > 6 else 1)] %}<span>{{ label }}</span>{% endfor %}</div>
+  </article>
+  <article class="panel">
+    <div class="section-title"><h2>协议分布</h2><span>真实事件优先</span></div>
+    {% if protocols %}
+    <div class="donut-wrap">
+      <div class="donut" style="--donut: conic-gradient({% for item in protocols %}{{ item.color }} {{ item.start }}% {{ item.end }}%{{ ',' if not loop.last else '' }}{% endfor %});"><span>总流量<br><b>{{ traffic.traffic_label }}</b></span></div>
+      <div class="protocol-list">
+        {% for item in protocols %}
+        <div><span><i style="--c: {{ item.color }}"></i>{{ item.label }}</span><b>{{ item.percent }}%</b><small>{{ item.label_value }}</small></div>
+        {% endfor %}
+      </div>
+    </div>
+    {% else %}
+    <div class="empty">暂无真实协议流量数据。接入流量上报后会按事件字节数生成分布。</div>
+    {% endif %}
+  </article>
+  <article class="panel">
+    <div class="section-title"><h2>异常队列</h2><a href="#events">查看全部</a></div>
+    <div class="alert-list">
+      <div class="queue-card danger"><b>高风险事件</b><strong>{{ events|selectattr("risk", "equalto", "高")|list|length }}</strong><small>按真实上报 risk 统计</small></div>
+      <div class="queue-card warn"><b>中风险事件</b><strong>{{ events|selectattr("risk", "equalto", "中")|list|length }}</strong><small>按真实上报 risk 统计</small></div>
+      <div class="queue-card amber"><b>异常与封禁事件</b><strong>{{ traffic.anomalies }}</strong><small>来自 risk/action/connections</small></div>
+    </div>
+  </article>
+</section>
+
+<article class="panel" id="events">
+  <div class="section-title"><h2>审计日志</h2><a href="{{ url_for('audit_logs_admin') }}">后台操作日志</a></div>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr><th>时间</th><th>用户</th><th>源 IP</th><th>节点</th><th>协议</th><th>流量</th><th>风险</th><th>动作</th></tr></thead>
+      <tbody>
+        {% for item in events %}
+        <tr>
+          <td>{{ item.created_at }}</td>
+          <td>{{ item.user_name or item.traffic_key or "-" }}</td>
+          <td>{{ item.source_ip or "-" }}</td>
+          <td>{{ item.node or "-" }}</td>
+          <td>{{ item.protocol or "-" }}</td>
+          <td><span class="traffic-cell">↑ {{ item.upload_bytes|filesizeformat }}</span><span class="traffic-cell down">↓ {{ item.download_bytes|filesizeformat }}</span></td>
+          <td><span class="badge {{ 'danger' if item.risk in ['高','严重'] else 'warn' if item.risk == '中' else 'ok' }}">{{ item.risk or "低" }}</span></td>
+          <td>{{ item.action or "记录" }}</td>
+        </tr>
+        {% else %}<tr><td colspan="8">没有匹配的流量事件。</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "admin/pagination.html" %}
+</article>
+{% endblock %}

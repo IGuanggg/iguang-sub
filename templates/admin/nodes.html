@@ -1,0 +1,291 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<div class="page-head">
+  <div><h1>节点管理</h1><p>按订阅检测流水线管理：导入上游、解析入池、验真过滤、生成默认与优选订阅。</p></div>
+  <div class="head-actions">
+    <a class="secondary-button" href="{{ url_for('subs_check_admin') }}">订阅策略</a>
+  </div>
+</div>
+
+<section class="workspace with-detail">
+  <div class="workspace-main">
+    {% include "admin/subscription_workbench.html" %}
+
+    <details class="panel subs-settings-panel advanced-panel" id="subs-check-settings">
+      <summary class="advanced-summary">
+        <div>
+          <h2>高级优选检测规则</h2>
+          <span>日常只需要同步资产池和重检优选；这里用于调整 subs-check 的保留规则、检测间隔和媒体检测。</span>
+        </div>
+        <em>展开配置</em>
+      </summary>
+      <form method="post" action="{{ url_for('update_subs_check_config_route') }}" class="subs-settings-form">
+        <div class="settings-grid">
+          <label>拉取 UA
+            <input name="sub_urls_get_ua" value="{{ subs_check_config.sub_urls_get_ua }}" placeholder="ClashMetaForAndroid/2.11.13">
+          </label>
+          <label>优选节点来源标识
+            <input name="source_tag" value="{{ subs_check_config.source_tag }}" placeholder="ray-sub">
+          </label>
+          <label>检测间隔（分钟）
+            <input name="check_interval" value="{{ subs_check_config.check_interval }}" inputmode="numeric">
+          </label>
+          <label>测活并发（上限 20）
+            <input name="concurrent" value="{{ subs_check_config.concurrent }}" inputmode="numeric">
+          </label>
+          <label>测速并发（上限 10）
+            <input name="speed_concurrent" value="{{ subs_check_config.speed_concurrent }}" inputmode="numeric">
+          </label>
+          <label>媒体并发（上限 10）
+            <input name="media_concurrent" value="{{ subs_check_config.media_concurrent }}" inputmode="numeric">
+          </label>
+          <label>最低速度（KB/s）
+            <input name="min_speed" value="{{ subs_check_config.min_speed }}" inputmode="numeric">
+          </label>
+          <label>异常订阅提示阈值（%）
+            <input name="success_rate" value="{{ subs_check_config.success_rate }}" inputmode="numeric">
+          </label>
+          <label>历史保留天数
+            <input name="keep_days" value="{{ subs_check_config.keep_days }}" inputmode="numeric">
+          </label>
+          <label class="checkbox-line setting-toggle"><input name="media_check" type="checkbox" value="1" {% if subs_check_config.media_check %}checked{% endif %}> 开启媒体 / AI 解锁检测</label>
+        </div>
+        <div class="check-chip-grid">
+          <fieldset>
+            <legend>保留协议</legend>
+            {% for item in subs_check_config.node_type_options %}
+              <label class="choice-chip"><input type="checkbox" name="node_types" value="{{ item }}" {% if item in subs_check_config.node_types %}checked{% endif %}><span>{{ item }}</span></label>
+            {% endfor %}
+          </fieldset>
+          <fieldset>
+            <legend>解锁平台</legend>
+            {% for item in subs_check_config.platform_options %}
+              <label class="choice-chip"><input type="checkbox" name="platforms" value="{{ item }}" {% if item in subs_check_config.platforms %}checked{% endif %}><span>{{ item }}</span></label>
+            {% endfor %}
+          </fieldset>
+        </div>
+        <div class="settings-grid wide">
+          <label>保留过滤正则
+            <textarea name="filter_text" placeholder="一行一条保留规则，例如 香港|HK、GPT、NF、\\|[0-4]?[0-9]%">{{ subs_check_config.filter_text }}</textarea>
+          </label>
+          <label>通知接收 URL
+            <textarea name="recipient_text" placeholder="一行一个 Apprise 或 Webhook 接收地址">{{ subs_check_config.recipient_text }}</textarea>
+          </label>
+          <label>Apprise API 地址
+            <input name="apprise_api_server" value="{{ subs_check_config.apprise_api_server }}" placeholder="http://apprise:8000">
+          </label>
+        </div>
+        <div class="form-footer">
+          <small>配置文件：{{ subs_check_config.path }}</small>
+          <label class="checkbox-line"><input name="trigger_after_save" type="checkbox" value="1"> 保存后立即重检</label>
+          <button type="submit">保存优选检测规则</button>
+        </div>
+      </form>
+    </details>
+
+    <article class="panel subs-log-panel">
+      <div class="section-title stacked-title">
+        <div><h2>优选检测日志</h2><span>来自 subs-check API 和本后台导入记录。</span></div>
+      </div>
+      <div class="subs-log-grid">
+        <div class="check-grid">
+          {% for run in subs_check_runs %}
+          <div class="check-item {{ run.tone }}"><span>{{ run.status }}</span><div><b>{{ run.action }} · {{ run.created_label }}</b><small>{{ run.message }}</small></div></div>
+          {% else %}
+          <div class="empty">还没有检测操作记录。</div>
+          {% endfor %}
+        </div>
+        <pre class="log-snippet">{% for line in subs_check_logs %}{{ line }}
+{% else %}暂无 subs-check 日志。{% endfor %}</pre>
+      </div>
+    </article>
+
+    <form class="toolbar-panel" method="get" action="{{ url_for('nodes_admin') }}" data-auto-submit>
+      <div class="toolbar-group"><label>区域<select name="region"><option value="">全部</option>{% for item in region_options %}<option value="{{ item }}" {% if filters.region == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></label></div>
+      <div class="toolbar-group"><label>状态<select name="status"><option value="">全部</option>{% for item in status_options %}<option value="{{ item }}" {% if filters.status == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></label></div>
+      <div class="toolbar-group"><label>协议<select name="protocol"><option value="">全部</option>{% for item in protocol_options %}<option value="{{ item }}" {% if filters.protocol == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></label></div>
+      <label class="toolbar-search"><svg><use href="#i-search"></use></svg><input name="q" value="{{ filters.q }}" placeholder="搜索节点 / 入口 / 解析 IP / ASN"></label>
+      <div class="toolbar-actions"><button class="icon-action" type="submit" title="筛选"><svg><use href="#i-filter"></use></svg></button><a class="icon-action" href="{{ url_for('nodes_admin') }}" title="清空筛选"><svg><use href="#i-refresh"></use></svg></a></div>
+    </form>
+
+    <section class="metric-grid four">
+      <article class="metric-card teal"><span class="metric-icon"><svg><use href="#i-node"></use></svg></span><small>资产总数</small><strong data-status-field="asset_total">{{ all_rows|length }}</strong><p>当前视图 <span data-status-field="filtered_count">{{ pager.total }}</span> · 上游缓存 <span data-status-field="upstream_total">{{ upstream_node_count }}</span></p></article>
+      <article class="metric-card {{ 'green' if engine.status_tone == 'ok' else 'red' if engine.status_tone == 'danger' else 'amber' }}"><span class="metric-icon"><svg><use href="#i-test"></use></svg></span><small>默认订阅下发</small><strong data-status-field="subscription_count">{{ subscription_node_count }}</strong><p>当前策略：<span data-status-field="default_output_label">{{ engine.default_output_label }}</span></p></article>
+      <article class="metric-card amber"><span class="metric-icon"><svg><use href="#i-log"></use></svg></span><small>真测通过</small><strong data-status-field="proxy_ok">{{ upstream_proxy_ok_count }}</strong><p>上游真实代理可用；优选检测后自动刷新</p></article>
+      <article class="metric-card red"><span class="metric-icon"><svg><use href="#i-trash"></use></svg></span><small>已过滤</small><strong data-status-field="upstream_filtered">{{ upstream_filtered_count }}</strong><p>失败上游保留后台，不下发订阅</p></article>
+    </section>
+
+    <article class="panel" id="upstreams">
+      <div class="section-title stacked-title">
+        <div><h2>上游订阅源</h2><span>URL、文件和粘贴内容都会先进入解析与验真流程。</span></div>
+      </div>
+      <form class="upstream-composer" method="post" action="{{ url_for('create_upstream') }}" enctype="multipart/form-data">
+        <div class="composer-fields">
+          <input name="name" placeholder="订阅源名称">
+          <input name="prefix" placeholder="节点名前缀">
+          <input name="url" placeholder="https://...">
+          <label class="composer-interval"><span>自动同步间隔</span><input name="update_interval_minutes" value="60" inputmode="numeric" aria-label="自动同步间隔（分钟）"><em>分钟</em></label>
+          <input name="file" type="file" accept=".txt,.yaml,.yml,.conf,.list,text/*,application/yaml">
+          <label class="checkbox-line"><input name="only_nodes" type="checkbox" value="1" checked> 只保留真实节点</label>
+        </div>
+        <textarea name="content" placeholder="也可直接粘贴订阅内容"></textarea>
+        <button type="submit">添加并同步</button>
+      </form>
+      <div class="table-wrap compact-table">
+        <table class="data-table">
+          <thead><tr><th>订阅源</th><th>间隔</th><th>验真状态</th><th>节点</th><th>检查</th><th>操作</th></tr></thead>
+          <tbody>
+            {% for item in upstreams %}
+            <tr>
+              <td>
+                <b>{{ item.name }}</b><small>{{ item.source_label }} · {{ item.filter_label }}</small><small class="upstream-url-label">{{ item.url_label }}</small>
+              </td>
+              <td>{{ item.interval_label }}</td>
+              <td><span class="badge {{ item.verify_tone }}">{{ item.verify_status }}</span><small>{{ item.verify_label }}{% if item.last_error %} · {{ item.last_error }}{% endif %}</small></td>
+              <td>{{ item.node_count_label }}</td>
+              <td>{{ item.last_checked_label }}</td>
+              <td class="actions-cell">
+                <a class="icon-action" href="{{ url_for('nodes_admin', q=item.name) }}" title="查看缓存节点"><svg><use href="#i-search"></use></svg></a>
+                {% if not item.is_system_source %}<button class="icon-action" type="button" title="编辑订阅源" aria-expanded="false" data-upstream-edit-toggle="{{ item.id }}"><svg><use href="#i-edit"></use></svg></button>{% endif %}
+                <form method="post" action="{{ url_for('sync_upstream_route', upstream_id=item.id) }}"><button class="icon-action" title="同步"><svg><use href="#i-refresh"></use></svg></button></form>
+                <form method="post" action="{{ url_for('toggle_upstream', upstream_id=item.id) }}"><button class="icon-action" title="启停"><svg><use href="#i-test"></use></svg></button></form>
+                {% if not item.is_system_source %}<form method="post" action="{{ url_for('delete_upstream', upstream_id=item.id) }}" onsubmit="return confirm('确定删除这个订阅源吗？')"><button class="icon-action danger-text" title="删除"><svg><use href="#i-trash"></use></svg></button></form>{% endif %}
+              </td>
+            </tr>
+            {% else %}<tr><td colspan="6">还没有上游订阅源。</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% for item in upstreams if not item.is_system_source %}
+      <dialog class="upstream-edit-dialog" data-upstream-editor="{{ item.id }}">
+        <div class="upstream-edit-head"><div><span class="panel-kicker">上游订阅源</span><h3>编辑 {{ item.name }}</h3><p>修改链接后可立即重新验真；失败时继续使用上次成功缓存。</p></div><button class="icon-action" type="button" title="关闭编辑" data-upstream-edit-close="{{ item.id }}">×</button></div>
+        <form class="upstream-edit-form" method="post" action="{{ url_for('update_upstream', upstream_id=item.id) }}">
+          <div class="upstream-edit-grid">
+            <label>订阅源名称<input name="name" value="{{ item.name }}" required></label>
+            <label>节点名前缀<input name="prefix" value="{{ item.prefix }}" placeholder="可留空"></label>
+            <label class="upstream-url-field">订阅链接
+              {% if item.source_type == 'url' %}<input name="url" value="{{ item.url }}" type="url" required autocomplete="off">
+              {% else %}<input value="文件/粘贴源没有远程链接" disabled>{% endif %}
+            </label>
+            <label>自动同步间隔（分钟）<input name="update_interval_minutes" value="{{ item.update_interval_minutes }}" inputmode="numeric" min="1" max="10080"></label>
+          </div>
+          <div class="upstream-edit-options">
+            <label class="checkbox-line"><input name="only_nodes" type="checkbox" value="1" {% if item.only_nodes %}checked{% endif %}> 只保留真实节点</label>
+            <label class="checkbox-line"><input name="sync_after_save" type="checkbox" value="1" checked> 保存后立即同步</label>
+          </div>
+          <div class="upstream-edit-footer"><button class="secondary-button" type="button" data-upstream-edit-close="{{ item.id }}">取消</button><button type="submit">保存订阅源</button></div>
+        </form>
+      </dialog>
+      {% endfor %}
+    </article>
+
+    <article class="panel" id="add-node">
+      <div class="section-title"><h2>手动节点</h2><a href="{{ url_for('export_nodes') }}">下载 nodes.txt</a></div>
+      <div class="two-forms">
+        <form method="post" action="{{ url_for('append_nodes') }}"><label>新增节点<textarea name="nodes" placeholder="一行一个节点，新增不会覆盖"></textarea></label><button type="submit">新增节点</button></form>
+        <form method="post" action="{{ url_for('save_nodes') }}"><label>覆盖整理<textarea name="nodes">{{ nodes_text }}</textarea></label><button class="secondary-button" type="submit">覆盖保存</button></form>
+      </div>
+    </article>
+
+    <article class="panel" id="assets">
+      <div class="section-title"><h2>节点列表</h2><span>共 {{ rows|length }} 条</span></div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>节点名称</th><th>来源</th><th>国家 / 区域</th><th>入口地址</th><th>解析 IP</th><th>ASN / 运营商</th><th>协议</th><th>真测</th><th>质量</th><th>优选标签</th><th>订阅</th><th>状态</th><th>操作</th></tr></thead>
+          <tbody>
+            {% for node in rows %}
+            <tr>
+              <td><span class="status-dot {{ 'off' if node.status_tone == 'danger' else 'warn' if node.status_tone == 'warn' else '' }}"></span><b>{{ node.display }}</b><small>{{ node.asset_key }}</small></td>
+              <td><span class="badge {{ 'ok' if node.source_type == 'manual' else '' }}">{{ node.source_label }}</span>{% if node.upstream_name %}<small>{{ node.upstream_name }}</small>{% endif %}</td>
+              <td>{{ node.country_label }}<small>{{ node.region }} · {{ node.geo_checked_label }}</small></td>
+              <td>{{ node.endpoint_host }}{% if node.endpoint_port %}<small>:{{ node.endpoint_port }}</small>{% endif %}</td>
+              <td>{{ node.resolved_ip }}</td>
+              <td>{{ node.asn }}{% if node.org %}<small>{{ node.org }}</small>{% endif %}</td>
+              <td>{{ node.protocol }}</td>
+              <td>{{ node.latency_label }}<small>{{ node.tested_label }}</small><span class="badge {{ node.check_status_tone }}">{{ node.check_status_label }}</span></td>
+              <td>
+                <span class="verification-level {{ node.quality_grade_tone }}">{{ node.quality_grade }}</span>
+                <b class="verification-label">{{ node.quality_grade_label }}</b>
+                <small>{{ node.quality_rounds_label }} · 评分 {{ node.quality_score }}</small>
+              </td>
+              <td>{{ node.media_label }}<small>速度 {{ node.speed_label }} · 风险 {{ node.ip_risk_label }}</small></td>
+              <td><span class="badge {{ 'danger' if node.is_filtered_upstream else 'ok' if node.subscription_state_label == '订阅下发' else 'warn' }}">{{ node.subscription_state_label }}</span></td>
+              <td><span class="badge {{ node.status_tone }}">{{ node.status_label }}</span></td>
+              <td class="actions-cell">
+                <a class="icon-action" href="{{ url_for('nodes_admin', asset_key=node.asset_key) }}" title="详情"><svg><use href="#i-edit"></use></svg></a>
+                <form method="post" action="{{ url_for('refresh_node_asset_geo', asset_key=node.asset_key) }}"><button class="icon-action" title="刷新地理位置"><svg><use href="#i-refresh"></use></svg></button></form>
+                <form method="post" action="{{ url_for('speedtest_node_asset', asset_key=node.asset_key) }}"><button class="icon-action" title="入口连通检测"><svg><use href="#i-test"></use></svg></button></form>
+                <form method="post" action="{{ url_for('proxytest_node_asset', asset_key=node.asset_key) }}"><button class="icon-action" title="真实代理测试"><svg><use href="#i-shield"></use></svg></button></form>
+                {% if node.source_type == 'manual' %}
+                <form method="post" action="{{ url_for('delete_node', node_id=node.id) }}" onsubmit="return confirm('确定删除这个节点吗？')"><button class="icon-action danger-text" title="删除"><svg><use href="#i-trash"></use></svg></button></form>
+                {% endif %}
+              </td>
+            </tr>
+            {% else %}<tr><td colspan="13">没有匹配的节点。</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% include "admin/pagination.html" %}
+    </article>
+  </div>
+
+  <aside class="detail-panel node-detail">
+    <div class="section-title"><h2>节点详情</h2><span>资产详情</span></div>
+    {% if selected_node %}
+    <h3><span class="dot"></span>{{ selected_node.display }}</h3>
+    <p>{{ selected_node.country_label }} · {{ selected_node.protocol }}</p>
+    <dl class="detail-list">
+      <dt>来源</dt><dd>{{ selected_node.source_label }}{% if selected_node.upstream_name %} · {{ selected_node.upstream_name }}{% endif %}</dd>
+      <dt>入口地址</dt><dd>{{ selected_node.endpoint_host }}</dd>
+      <dt>端口</dt><dd>{{ selected_node.endpoint_port or "-" }}</dd>
+      <dt>解析 IP</dt><dd>{{ selected_node.resolved_ip }}</dd>
+      <dt>国家 / 区域</dt><dd>{{ selected_node.country_label }} · {{ selected_node.region }}</dd>
+      <dt>ASN</dt><dd>{{ selected_node.asn }}</dd>
+      <dt>运营商</dt><dd>{{ selected_node.org or "-" }}</dd>
+      <dt>识别状态</dt><dd><span class="badge {{ 'ok' if selected_node.geo_status == 'ok' else 'warn' }}">{{ selected_node.geo_status }}</span></dd>
+      <dt>更新时间</dt><dd>{{ selected_node.geo_checked_label }}</dd>
+      <dt>真测状态</dt><dd><span class="badge {{ selected_node.check_status_tone }}">{{ selected_node.check_status_label }}</span></dd>
+      <dt>历史稳定率</dt><dd>{{ selected_node.success_rate_label }} · 均值 {{ selected_node.avg_latency_label }}</dd>
+      <dt>验证等级</dt><dd><span class="verification-level {{ selected_node.quality_grade_tone }}">{{ selected_node.quality_grade }}</span> {{ selected_node.quality_grade_label }} · {{ selected_node.quality_grade_detail }}</dd>
+      <dt>三轮稳定性</dt><dd><span class="badge {{ selected_node.quality_stability_tone }}">{{ selected_node.quality_stability_label }}</span> {{ selected_node.quality_rounds_label }}</dd>
+      <dt>质量评分</dt><dd><span class="quality-pill {{ selected_node.quality_tone }}">{{ selected_node.quality_score }}</span> {{ selected_node.quality_label }} · {{ selected_node.quality_summary }}</dd>
+      <dt>最近失败</dt><dd>{{ selected_node.last_failed_label }}</dd>
+      <dt>媒体 / AI</dt><dd>{{ selected_node.media_label }}</dd>
+      <dt>测速标签</dt><dd>{{ selected_node.speed_label }}</dd>
+      <dt>IP 风险</dt><dd>{{ selected_node.ip_risk_label }}</dd>
+      <dt>标签更新</dt><dd>{{ selected_node.metadata_updated_label }}</dd>
+      <dt>订阅状态</dt><dd><span class="badge {{ 'danger' if selected_node.is_filtered_upstream else 'ok' if selected_node.subscription_state_label == '订阅下发' else 'warn' }}">{{ selected_node.subscription_state_label }}</span></dd>
+      <dt>状态</dt><dd><span class="badge {{ selected_node.status_tone }}">{{ selected_node.status_label }}</span></dd>
+      <dt>延迟</dt><dd>{{ selected_node.latency_label }}</dd>
+    </dl>
+    {% if selected_node.monitoring_available %}
+    <div class="monitor-grid">
+      <div><small>CPU</small><b>{{ selected_node.monitor.cpu_label }}</b><i style="width:{{ selected_node.monitor.cpu_percent }}%"></i></div>
+      <div><small>内存</small><b>{{ selected_node.monitor.memory_label }}</b><i style="width:{{ selected_node.monitor.memory_percent }}%"></i></div>
+      <div><small>入站</small><b>{{ selected_node.monitor.inbound_label }}</b></div>
+      <div><small>出站</small><b>{{ selected_node.monitor.outbound_label }}</b></div>
+      <div><small>连接数</small><b>{{ selected_node.monitor.connections_label }}</b></div>
+      <div><small>负载状态</small><b>{{ selected_node.monitor.load_label }}</b></div>
+      <div><small>上报</small><b>{{ selected_node.monitor.reported_label }}</b></div>
+      <div><small>新鲜度</small><b>{{ selected_node.monitor.fresh_label }}</b></div>
+    </div>
+    {% else %}
+    <div class="empty monitor-empty">节点资源监控未接入。通过 <code>POST /api/node-monitor/report</code> 上报后，这里会展示 CPU、内存、入站、出站和连接数。</div>
+    {% endif %}
+    {% if selected_node.geo_error %}<div class="empty geo-error">GeoIP：{{ selected_node.geo_error }}</div>{% endif %}
+    <form method="post" action="{{ url_for('refresh_node_asset_geo', asset_key=selected_node.asset_key) }}"><button class="secondary-button full" type="submit"><svg><use href="#i-refresh"></use></svg>刷新当前节点地理位置</button></form>
+    <form method="post" action="{{ url_for('speedtest_node_asset', asset_key=selected_node.asset_key) }}"><button class="secondary-button full" type="submit"><svg><use href="#i-test"></use></svg>入口连通检测</button></form>
+    <form method="post" action="{{ url_for('proxytest_node_asset', asset_key=selected_node.asset_key) }}"><button class="secondary-button full" type="submit"><svg><use href="#i-shield"></use></svg>真实代理测试</button></form>
+    {% if selected_node.source_type == 'manual' %}
+    <form class="form-grid" method="post" action="{{ url_for('rename_node', node_id=selected_node.id) }}"><input name="display_name" value="{{ selected_node.display }}"><button type="submit">保存名称</button></form>
+    {% else %}
+    <div class="empty">上游订阅节点为只读资产。如需删除，请在上游订阅源中处理后重新同步。</div>
+    {% endif %}
+    <form method="post" action="{{ url_for('update_return_test_target') }}" class="form-grid"><input name="return_test_host" value="{{ return_test_host }}" placeholder="测速目标 IP / 域名"><input name="return_test_port" value="{{ return_test_port }}" inputmode="numeric"><button class="secondary-button" type="submit">保存测速口径</button></form>
+    <small>当前测速目标：{{ return_test_target }}</small>
+    {% else %}
+    <div class="empty">暂无节点详情。</div>
+    {% endif %}
+  </aside>
+</section>
+{% endblock %}

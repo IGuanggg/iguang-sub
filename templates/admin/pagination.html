@@ -1,0 +1,32 @@
+{% if pager %}
+<div class="pager">
+  <span>共 {{ pager.total }} 条 · 第 {{ pager.page }} / {{ pager.pages }} 页</span>
+  {% if pager.has_prev %}
+  <a href="{{ pager.prev_url }}">‹</a>
+  {% else %}
+  <span class="disabled">‹</span>
+  {% endif %}
+  {% for item in pager.page_urls %}
+  {% if item.number == pager.page %}
+  <b>{{ item.number }}</b>
+  {% else %}
+  <a href="{{ item.url }}">{{ item.number }}</a>
+  {% endif %}
+  {% endfor %}
+  {% if pager.has_next %}
+  <a href="{{ pager.next_url }}">›</a>
+  {% else %}
+  <span class="disabled">›</span>
+  {% endif %}
+  <form method="get" action="{{ url_for(request.endpoint) }}" data-auto-submit>
+    {% for key, value in pager.query_args.items() if key not in ["page", "per_page"] %}
+    <input type="hidden" name="{{ key }}" value="{{ value }}">
+    {% endfor %}
+    <select name="per_page" aria-label="每页条数">
+      {% for size in [10, 20, 50, 100] %}
+      <option value="{{ size }}" {% if pager.per_page == size %}selected{% endif %}>{{ size }} 条/页</option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+{% endif %}

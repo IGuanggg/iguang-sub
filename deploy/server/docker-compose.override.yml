@@ -1,0 +1,25 @@
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: iguang-caddy
+    restart: unless-stopped
+    depends_on:
+      sub-service:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/server/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  caddy_data:
+  caddy_config:

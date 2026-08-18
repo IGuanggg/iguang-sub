@@ -1,0 +1,65 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ "发放订阅" if issued else user.name }}</h1><p>状态：{{ user.status }} · 识别名：{{ user.traffic_key or "未设置" }}</p></div>
+  <a class="secondary-button" href="{{ url_for('users_admin') }}">返回用户</a>
+</div>
+{% if issued %}<section class="warning-note">用户已创建。请复制下方订阅链接或二维码发给用户，并确认流量识别名已配置。</section>{% endif %}
+<section class="metric-grid four">
+  <article class="metric-card teal"><small>已用流量</small><strong>{{ user.used_label }}</strong><p>{{ user.usage_percent }}%</p></article>
+  <article class="metric-card green"><small>剩余流量</small><strong>{{ user.remaining_label }}</strong><p>总量 {{ user.total_label }}</p></article>
+  <article class="metric-card blue"><small>到期日期</small><strong>{{ user.expire_at or "不限" }}</strong><p>{{ user.expire_days or "-" }} 天</p></article>
+  <article class="metric-card amber"><small>当前状态</small><strong>{{ user.status }}</strong><p>{{ user.warning_label or "无预警" }}</p></article>
+</section>
+<section class="panel">
+  <div class="section-title"><h2>接入检查</h2><span>发放前确认</span></div>
+  <div class="check-grid">
+    {% for item in access_checks %}
+    <div class="check-item {{ 'ok' if item.ok else 'warn' }}"><span>{{ "通过" if item.ok else "待处理" }}</span><div><b>{{ item.label }}</b><small>{{ item.detail }}</small></div></div>
+    {% endfor %}
+  </div>
+</section>
+<section class="dashboard-grid">
+  <article class="panel">
+    <div class="section-title"><h2>专属订阅链接</h2><span>给用户复制这个</span></div>
+    <div class="link-grid single">
+      {% for label, url in [("Hiddify", user.links.hiddify), ("Clash / Mihomo", user.links.clash), ("V2Ray / Shadowrocket", user.links.v2ray), ("Surge", user.links.surge), ("QX", user.links.qx)] %}
+      <div class="copy-card"><b>{{ label }}</b><code>{{ base }}{{ url }}</code><button class="icon-action" type="button" data-copy="{{ base }}{{ url }}">⧉</button></div>
+      {% endfor %}
+    </div>
+    <div class="qr-strip">
+      {% for label, fmt in [("Hiddify", "hiddify"), ("Clash", "clash"), ("V2Ray", "v2ray"), ("Surge", "surge"), ("QX", "qx")] %}
+      <div><img src="{{ url_for('subscriber_qr', user_id=user.id, fmt=fmt) }}" alt="{{ label }} 二维码"><small>{{ label }}</small></div>
+      {% endfor %}
+    </div>
+  </article>
+  <div class="panel-stack">
+    <form class="panel form-grid" method="post" action="{{ url_for('update_subscriber', user_id=user.id) }}">
+      <div class="section-title"><h2>编辑用户</h2><span>保存后立即生效</span></div>
+      <label>用户名称<input name="name" value="{{ user.name }}"></label>
+      <label>到期日期<input name="expire_at" type="date" value="{{ user.expire_at }}"></label>
+      <label>总流量 GB<input name="total_gb" value="{{ user.total_gb }}" inputmode="decimal"></label>
+      <label>已用流量 GB<input name="used_gb" value="{{ user.used_gb }}" inputmode="decimal"></label>
+      <label>流量识别名 / Xray email<input name="traffic_key" value="{{ user.traffic_key }}"></label>
+      <label>备注 / 订单号<input name="note" value="{{ user.note }}"></label>
+      <label class="checkbox-line"><input name="enabled" type="checkbox" value="1" {% if user.enabled %}checked{% endif %}> 启用这个用户</label>
+      <button type="submit">保存用户</button>
+    </form>
+    <form class="panel form-grid" method="post" action="{{ url_for('subscriber_quick_action', user_id=user.id) }}">
+      <div class="section-title"><h2>快捷处理</h2><span>续费 / 加流量</span></div>
+      <label>延长天数<input name="add_days" value="30" inputmode="numeric"></label>
+      <label>增加流量 GB<input name="add_gb" value="100" inputmode="decimal"></label>
+      <div class="button-row">
+        <button name="action" value="extend" type="submit">延长时间</button>
+        <button name="action" value="add_traffic" type="submit">增加流量</button>
+        <button class="secondary-button" name="action" value="reset_used" type="submit">清零已用</button>
+      </div>
+    </form>
+    <form class="panel danger-panel" method="post" action="{{ url_for('delete_subscriber', user_id=user.id) }}" onsubmit="return confirm('确定删除用户 {{ user.name }} 吗？删除前会自动备份用户列表。')">
+      <div class="section-title"><h2>删除用户</h2><span>危险操作</span></div>
+      <p>删除后这个用户的订阅链接会失效，历史流量事件不会自动删除。</p>
+      <button class="danger-button" type="submit">删除用户</button>
+    </form>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,74 @@
+services:
+  sub-service:
+    build: .
+    image: iguang-sub/iguang-sub:latest
+    container_name: iguang-sub
+    restart: unless-stopped
+    ports:
+      # 宿主机端口:容器端口。容器内固定监听 8001。
+      - "${HOST_LISTEN_HOST:-127.0.0.1}:${HOST_PORT:-18002}:8001"
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASSWORD:<CHANGE_ME>
+      UPDATE_TOKEN:<CHANGE_ME>
+      PROFILE_TITLE: ${PROFILE_TITLE:-RAY-VPN-Sub}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://sub.0909106.xyz}
+      RETURN_TEST_HOST: ${RETURN_TEST_HOST:-}
+      RETURN_TEST_PORT: ${RETURN_TEST_PORT:-443}
+      UPSTREAM_USER_AGENT: ${UPSTREAM_USER_AGENT:-ClashMetaForAndroid/2.11.13}
+      FILTER_FAILED_UPSTREAM_NODES: ${FILTER_FAILED_UPSTREAM_NODES:-0}
+      UPSTREAM_REQUIRE_PROXY_OK: ${UPSTREAM_REQUIRE_PROXY_OK:-0}
+      SING_BOX_PATH: ${SING_BOX_PATH:-/usr/local/bin/sing-box}
+      SUBS_CHECK_SUBSCRIPTION_ENABLED: ${SUBS_CHECK_SUBSCRIPTION_ENABLED:-1}
+      SUBSCRIPTION_ENGINE_MODE: ${SUBSCRIPTION_ENGINE_MODE:-balanced}
+      SUBS_CHECK_MIN_OUTPUT_NODES: ${SUBS_CHECK_MIN_OUTPUT_NODES:-20}
+      SUBS_CHECK_BASE_URL: ${SUBS_CHECK_BASE_URL:-http://subs-check:8199}
+      SUBS_CHECK_PUBLIC_URL: ${SUBS_CHECK_PUBLIC_URL:-http://127.0.0.1:18199}
+      SUBS_CHECK_CLASH_PATH: ${SUBS_CHECK_CLASH_PATH:-/all.yaml}
+      SUBS_CHECK_V2RAY_PATH: ${SUBS_CHECK_V2RAY_PATH:-/base64.txt}
+      SUBS_CHECK_SURGE_PATH: ${SUBS_CHECK_SURGE_PATH:-}
+      SUBS_CHECK_QX_PATH: ${SUBS_CHECK_QX_PATH:-}
+      SUBS_CHECK_CONFIG_FILE: ${SUBS_CHECK_CONFIG_FILE:-/subs-check/config/config.yaml}
+      SUBS_CHECK_OUTPUT_DIR: ${SUBS_CHECK_OUTPUT_DIR:-/subs-check/output}
+      SUBS_CHECK_API_KEY: ${SUBS_CHECK_API_KEY:-iguang-subs-check}
+      # 可选：填了以后订阅链接会自动带 ?token=xxx，防止别人拿到你的节点。
+      SUB_TOKEN:<CHANGE_ME>
+      DATA_DIR: /data
+    volumes:
+      - ${DATA_PATH:-/opt/1panel/www/sites/sub.0909106.xyz/index/data}:/data
+      - ./subs-check/config:/subs-check/config
+      - ./subs-check/output:/subs-check/output
+      - ${HOST_SING_BOX_PATH:-/usr/local/bin/sing-box}:${SING_BOX_PATH:-/usr/local/bin/sing-box}:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=5).read()"]
+      interval: 30s
+      timeout: 8s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    depends_on:
+      - subs-check
+
+  subs-check:
+    image: ghcr.io/beck-8/subs-check:latest
+    container_name: iguang-subs-check
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      API_KEY: ${SUBS_CHECK_API_KEY:-iguang-subs-check}
+    ports:
+      - "${SUBS_CHECK_LISTEN_HOST:-127.0.0.1}:${SUBS_CHECK_PORT:-18199}:8199"
+      - "${SUBS_CHECK_LISTEN_HOST:-127.0.0.1}:${SUBS_CHECK_SUB_STORE_PORT:-18299}:8299"
+    volumes:
+      - ./subs-check/config:/app/config
+      - ./subs-check/output:/app/output
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

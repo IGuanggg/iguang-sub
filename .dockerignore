@@ -1,0 +1,9 @@
+data/
+__pycache__/
+*.pyc
+*.pyo
+*.log
+.git/
+.env
+index.tar
+README.md

@@ -1,0 +1,92 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<div class="page-head">
+  <div><h1>上线检查</h1><p>把订阅聚合、用户发放、流量审计和运维安全一次检查清楚。</p></div>
+  <div class="head-actions"><span class="date-range">{{ checks.passed }} / {{ checks.total }} 通过</span><a class="secondary-button" href="{{ url_for('admin') }}">返回总览</a></div>
+</div>
+
+{% if checks.default_password %}
+<section class="warning-note">当前后台仍使用默认密码 admin/admin，请优先在本页修改。</section>
+{% endif %}
+
+<section class="panel">
+  <div class="section-title"><h2>上线清单</h2><span>部署前必看</span></div>
+  <div class="check-grid">
+    {% for item in checks.checks %}
+    <div class="check-item {{ 'ok' if item.ok else 'warn' }}">
+      <span>{{ "通过" if item.ok else "待处理" }}</span>
+      <div><b>{{ item.label }}</b><small>{{ item.detail }}</small></div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="dashboard-grid">
+  <article class="panel">
+    <div class="section-title"><h2>部署状态</h2><span>运行时读取</span></div>
+    <dl class="detail-list">
+      <dt>公网地址</dt><dd>{{ checks.public_base_url or "未设置" }}</dd>
+      <dt>订阅 Token</dt><dd>{{ "已启用" if checks.subscription_token_enabled else "未启用" }}</dd>
+      <dt>公开入口</dt><dd>{{ checks.public_subscription.label }}</dd>
+      <dt>数据目录</dt><dd>{{ checks.data_dir }}</dd>
+      <dt>数据库</dt><dd>{{ checks.db_file }}</dd>
+      <dt>节点文件</dt><dd>{{ checks.nodes_file }}</dd>
+    </dl>
+    <form class="inline-filter secure-switch" method="post" action="{{ url_for('update_public_subscription_route') }}">
+      <input type="hidden" name="next" value="{{ url_for('admin_checks') }}">
+      <label class="checkbox-line"><input name="public_subscription_enabled" type="checkbox" value="1" {% if checks.public_subscription.enabled %}checked{% endif %}> <span>允许公共 /clash /v2ray 入口</span></label>
+      <button class="secondary-button" type="submit">保存公开入口</button>
+    </form>
+  </article>
+  <article class="panel">
+    <div class="section-title"><h2>备份状态</h2><a href="{{ url_for('backups_admin') }}">备份恢复</a></div>
+    <dl class="detail-list">
+      <dt>备份目录</dt><dd>{{ checks.backup.dir }}</dd>
+      <dt>目录可写</dt><dd>{{ "是" if checks.backup.writable else "否" }}</dd>
+      <dt>数据库备份</dt><dd>{{ checks.backup.database.name }} · {{ checks.backup.database.created }}</dd>
+      <dt>节点备份</dt><dd>{{ checks.backup.nodes.name }} · {{ checks.backup.nodes.created }}</dd>
+      <dt>恢复演练</dt><dd>{{ checks.backup.drill.label }} · {{ checks.backup.drill.checked_label }}</dd>
+    </dl>
+  </article>
+</section>
+
+<section class="dashboard-grid">
+  <form class="panel form-grid" method="post" action="{{ url_for('change_password') }}">
+    <div class="section-title"><h2>修改后台密码</h2><span>上线前必做</span></div>
+    <label>旧密码<input name="old_password" type="password" autocomplete="current-password"></label>
+    <label>新密码<input name="new_password" type="password" autocomplete="new-password"></label>
+    <label>确认新密码<input name="confirm_password" type="password" autocomplete="new-password"></label>
+    <input type="hidden" name="next" value="{{ url_for('admin_checks') }}">
+    <button type="submit">保存密码</button>
+  </form>
+  <article class="panel">
+    <div class="section-title"><h2>节点监控接入</h2><span>真实资源指标</span></div>
+    <dl class="detail-list">
+      <dt>接入状态</dt><dd>{{ "已接入" if checks.monitoring.enabled else "未接入" }}</dd>
+      <dt>覆盖资产</dt><dd>{{ checks.monitoring.asset_count }} 个</dd>
+      <dt>最近上报</dt><dd>{{ checks.monitoring.last_report_label }}</dd>
+    </dl>
+    <pre><code>POST /api/node-monitor/report
+Header: X-Update-Token: 你的 UPDATE_TOKEN
+{
+  "asset_key": "manual:21",
+  "cpu_percent": 12.5,
+  "memory_percent": 48.2,
+  "inbound_bps": 102400,
+  "outbound_bps": 204800,
+  "connections": 18,
+  "load_status": "normal"
+}</code></pre>
+  </article>
+</section>
+
+<section class="panel">
+  <div class="section-title"><h2>流量接入状态</h2><a href="{{ url_for('traffic_admin') }}">查看审计</a></div>
+  <div class="geo-summary">
+    <div><small>最近上报</small><strong>{{ checks.traffic.last_report_label }}</strong></div>
+    <div><small>已匹配用户</small><strong>{{ checks.traffic.matched }}</strong></div>
+    <div><small>未匹配识别名</small><strong>{{ checks.traffic.unmatched }}</strong></div>
+  </div>
+  <pre><code>*/5 * * * * /usr/bin/python3 /opt/iguang-sub/scripts/xray_usage_collector.py --backend xray --xray-bin /usr/local/bin/xray --xray-api 127.0.0.1:10085 --reset --report-url {{ checks.public_base_url or "https://sub.0909106.xyz" }}/api/traffic/report --token 你的UPDATE_TOKEN</code></pre>
+</section>
+{% endblock %}

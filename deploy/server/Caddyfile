@@ -1,0 +1,15 @@
+sub.0909106.xyz {
+    encode zstd gzip
+    reverse_proxy sub-service:8001
+
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+}
+
+http://103.79.118.103 {
+    encode zstd gzip
+    reverse_proxy sub-service:8001
+}

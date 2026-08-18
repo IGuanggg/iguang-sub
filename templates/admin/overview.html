@@ -1,0 +1,188 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>运营总览</h1>
+    <p>看默认订阅输出、资产池质量、用户规模、流量和发布风险，不在这里做节点明细管理。</p>
+  </div>
+  <div class="head-actions">
+    <span class="date-range">今日 ~ 实时</span>
+    <a class="secondary-button" href="{{ url_for('export_report_json') }}">导出 JSON 报表</a>
+  </div>
+</div>
+
+<section class="ops-command-center {{ engine.status_tone }}">
+  <div class="command-copy">
+    <span class="panel-kicker">当前默认订阅输出</span>
+    <h2>{{ engine.default_output_label }}</h2>
+    <p>{{ engine.reason }}</p>
+    <div class="command-actions">
+      <a class="primary-button" href="{{ url_for('subs_check_admin') }}">调整订阅策略</a>
+      <a class="secondary-button" href="{{ url_for('nodes_admin') }}">查看节点资产</a>
+      <a class="secondary-button" href="{{ url_for('traffic_admin') }}">查看流量审计</a>
+    </div>
+  </div>
+  <div class="command-stat-grid">
+    <div><small>策略模式</small><strong>{{ engine_mode_label }}</strong><span>{{ engine.active_label }}</span></div>
+    <div><small>全量资产池</small><strong>{{ asset_summary.total }}</strong><span>手动 {{ asset_summary.manual }} · 上游 {{ asset_summary.upstream }}</span></div>
+    <div><small>优选质量</small><strong>{{ engine.quality.stable_3 }}</strong><span>稳定 3/3 · 本轮 L3 {{ engine.quality.current_l3 }}</span></div>
+    <div><small>发布风险</small><strong>{{ check_failure_count }}</strong><span>{{ checks.passed }} / {{ checks.total }} 项通过</span></div>
+  </div>
+</section>
+
+<section class="metric-grid four">
+  <article class="metric-card {{ 'green' if engine.status_tone == 'ok' else 'red' if engine.status_tone == 'danger' else 'amber' }}">
+    <span class="metric-icon"><svg><use href="#i-shield"></use></svg></span>
+    <small>默认下发节点</small>
+    <strong>{{ engine.default_output_count }}</strong>
+    <p>{{ engine.default_output_label }} · {{ engine_mode_label }}</p>
+  </article>
+  <article class="metric-card teal">
+    <span class="metric-icon"><svg><use href="#i-node"></use></svg></span>
+    <small>节点资产池</small>
+    <strong>{{ asset_summary.total }}</strong>
+    <p>健康 {{ asset_summary.healthy }} · 警告 {{ asset_summary.warning }} · 异常 {{ asset_summary.failed }}</p>
+  </article>
+  <article class="metric-card blue">
+    <span class="metric-icon"><svg><use href="#i-user"></use></svg></span>
+    <small>有效用户</small>
+    <strong>{{ user_summary.active }}</strong>
+    <p>总用户 {{ user_summary.total }} · 预警 {{ user_summary.warning }}</p>
+  </article>
+  <article class="metric-card red">
+    <span class="metric-icon"><svg><use href="#i-log"></use></svg></span>
+    <small>风险事件</small>
+    <strong>{{ traffic.anomalies }}</strong>
+    <p>封禁 IP {{ traffic.blocked_ips }} · 事件 {{ traffic.event_count }}</p>
+  </article>
+</section>
+
+<section class="dashboard-grid overview-grid">
+  <article class="panel wide">
+    <div class="section-title">
+      <h2>流量趋势</h2>
+      <div class="segmented">
+        <a class="{{ 'active' if range == '1h' else '' }}" href="{{ url_for('admin', range='1h') }}">1 小时</a>
+        <a class="{{ 'active' if range == '24h' else '' }}" href="{{ url_for('admin', range='24h') }}">24 小时</a>
+        <a class="{{ 'active' if range == '7d' else '' }}" href="{{ url_for('admin', range='7d') }}">7 天</a>
+        <a class="{{ 'active' if range == '30d' else '' }}" href="{{ url_for('admin', range='30d') }}">30 天</a>
+      </div>
+    </div>
+    <div class="chart-legend">
+      <span class="legend teal">总带宽</span>
+      <span class="legend blue">下行流量</span>
+      <span class="legend green">上行流量</span>
+      <span class="chart-max">峰值 {{ chart.max_label }}</span>
+    </div>
+    <svg class="line-chart tall" viewBox="0 0 560 210" role="img" aria-label="流量趋势">
+      <defs>
+        <linearGradient id="overviewArea" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stop-color="#0ca7a5" stop-opacity=".2"/>
+          <stop offset="100%" stop-color="#0ca7a5" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <g class="grid-lines"><line x1="0" y1="42" x2="560" y2="42"/><line x1="0" y1="92" x2="560" y2="92"/><line x1="0" y1="142" x2="560" y2="142"/><line x1="0" y1="192" x2="560" y2="192"/></g>
+      <polyline class="line area-line" points="{{ chart.total_points }}"/>
+      <polyline class="line teal-line" points="{{ chart.total_points }}"/>
+      <polyline class="line blue-line" points="{{ chart.download_points }}"/>
+      <polyline class="line green-line" points="{{ chart.upload_points }}"/>
+    </svg>
+    {% if not chart.has_data %}<div class="chart-empty inline-empty">当前时间范围内暂无流量快照。使用订阅不等于自动产生审计流量，需要接入 `/api/traffic/report` 上报。</div>{% endif %}
+  </article>
+
+  <article class="panel">
+    <div class="section-title"><h2>发布风险</h2><a href="{{ url_for('admin_checks') }}">上线检查</a></div>
+    <div class="risk-summary">
+      <strong>{{ checks.passed }} / {{ checks.total }}</strong>
+      <span>通过项</span>
+    </div>
+    <div class="risk-list">
+      {% for item in check_failures %}
+      <a href="{{ url_for('admin_checks') }}">
+        <span class="badge warn">待处理</span>
+        <div><b>{{ item.label }}</b><small>{{ item.detail }}</small></div>
+      </a>
+      {% else %}
+      <div class="empty">上线检查没有阻断项。</div>
+      {% endfor %}
+    </div>
+  </article>
+</section>
+
+<section class="dashboard-grid">
+  <article class="panel">
+    <div class="section-title"><h2>资产治理</h2><a href="{{ url_for('nodes_admin') }}">进入节点资产</a></div>
+    <div class="governance-grid">
+      <div>
+        <span>健康资产</span><b>{{ asset_summary.healthy }} / {{ asset_summary.total }}</b>
+        <i><em style="width:{{ asset_summary.health_percent }}%"></em></i>
+      </div>
+      <div>
+        <span>GeoIP 识别</span><b>{{ geo.recognized }} / {{ geo.total }}</b>
+        <i><em style="width:{{ asset_summary.geo_percent }}%"></em></i>
+      </div>
+      <div>
+        <span>真测通过</span><b>{{ asset_summary.proxy_ok }} / {{ asset_summary.total }}</b>
+        <i><em style="width:{{ asset_summary.proxy_percent }}%"></em></i>
+      </div>
+      <div>
+        <span>验证等级</span><b>L3 {{ asset_summary.l3 }} · L2 {{ asset_summary.l2 }}</b>
+        <i><em style="width:{{ ((asset_summary.l3 + asset_summary.l2) * 100 // asset_summary.total) if asset_summary.total else 0 }}%"></em></i>
+      </div>
+      <div>
+        <span>节点监控</span><b>{{ asset_summary.monitored }} / {{ asset_summary.total }}</b>
+        <i><em style="width:{{ (asset_summary.monitored * 100 // asset_summary.total) if asset_summary.total else 0 }}%"></em></i>
+      </div>
+    </div>
+    <div class="bar-list">
+      {% for item in region_items %}
+      <div class="bar-row"><span>{{ item.label }}</span><b>{{ item.value }}</b><i style="width:{{ item.percent }}%"></i></div>
+      {% endfor %}
+    </div>
+  </article>
+
+  <article class="panel">
+    <div class="section-title"><h2>待处理资产</h2><a href="{{ url_for('nodes_admin', status='警告') }}">筛选节点</a></div>
+    <div class="asset-watch-list">
+      {% for node in node_rows %}
+      <a href="{{ url_for('nodes_admin', asset_key=node.asset_key) }}">
+        <span class="status-dot {{ 'off' if node.status_tone == 'danger' else 'warn' if node.status_tone == 'warn' else '' }}"></span>
+        <div><b>{{ node.display }}</b><small>{{ node.source_label }} · {{ node.country_label }} · {{ node.check_status_label }}</small></div>
+        <em>{{ node.status_label }}</em>
+      </a>
+      {% else %}
+      <div class="empty">暂无节点资产。</div>
+      {% endfor %}
+    </div>
+  </article>
+</section>
+
+<section class="dashboard-grid">
+  <article class="panel">
+    <div class="section-title"><h2>最近告警</h2><a href="{{ url_for('traffic_admin') }}">查看审计</a></div>
+    <div class="alert-list">
+      {% for alert in alerts %}
+      <div class="alert-item">
+        <span class="badge {{ 'danger' if alert.risk in ['高','严重'] else 'warn' }}">{{ alert.risk }}</span>
+        <div><b>{{ alert.message or alert.action or "异常连接" }}</b><small>{{ alert.node or alert.source_ip or alert.traffic_key }} · {{ alert.created_at }}</small></div>
+      </div>
+      {% else %}
+      <div class="empty">暂无高风险告警。</div>
+      {% endfor %}
+    </div>
+  </article>
+
+  <article class="panel">
+    <div class="section-title"><h2>订阅入口</h2><a href="{{ url_for('users_admin') }}">发放给用户</a></div>
+    <div class="link-grid compact-links">
+      {% for label, path in links %}
+      <div class="copy-card">
+        <b>{{ label }}</b>
+        <code>{{ base }}{{ path }}</code>
+        <button class="icon-action" type="button" data-copy="{{ base }}{{ path }}" title="复制"><svg><use href="#i-copy"></use></svg></button>
+      </div>
+      {% endfor %}
+    </div>
+  </article>
+</section>
+{% endblock %}

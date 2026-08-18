@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ page_title or "VPN 聚合后台" }}</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg', v=app_version) }}">
+  <link rel="shortcut icon" href="{{ url_for('favicon') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='admin.css', v=app_version) }}">
+</head>
+<body class="admin-body">
+  <svg class="svg-sprite" aria-hidden="true">
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/></symbol>
+    <symbol id="i-overview" viewBox="0 0 24 24"><path d="M4 13h6V5H4v8Zm10 6h6V5h-6v14ZM4 19h6v-3H4v3Z"/></symbol>
+    <symbol id="i-node" viewBox="0 0 24 24"><path d="M12 3v4m0 10v4M5.6 7l3.5 2m5.8 6 3.5 2M18.4 7l-3.5 2m-5.8 6-3.5 2"/><circle cx="12" cy="12" r="5"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.6-4 4.3-6 8-6s6.4 2 8 6"/></symbol>
+    <symbol id="i-plan" viewBox="0 0 24 24"><path d="M7 3h10l3 5-8 13L4 8l3-5Z"/><path d="M4 8h16M9 3l3 5 3-5"/></symbol>
+    <symbol id="i-traffic" viewBox="0 0 24 24"><path d="M4 16c2.5 0 2.5-8 5-8s2.5 8 5 8 2.5-8 6-8"/><path d="M4 21h16"/></symbol>
+    <symbol id="i-log" viewBox="0 0 24 24"><path d="M6 3h12v18H6z"/><path d="M9 8h6M9 12h6M9 16h4"/></symbol>
+    <symbol id="i-backup" viewBox="0 0 24 24"><path d="M5 6h14v12H5z"/><path d="M8 6V3h8v3M8 12h8"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><path d="M8 8h11v11H8z"/><path d="M5 16H4V4h12v1"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 6v5h-5"/><path d="M20 11a8 8 0 1 0-2.3 5.7"/></symbol>
+    <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/><path d="m13 7 4 4"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M5 7h14M10 11v6M14 11v6M8 7l1 13h6l1-13M9 7V4h6v3"/></symbol>
+    <symbol id="i-test" viewBox="0 0 24 24"><path d="M12 21a9 9 0 1 0-9-9"/><path d="M12 12 17 7M3 12h4"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 20 6v6c0 5-3.2 8-8 9-4.8-1-8-4-8-9V6l8-3Z"/><path d="m9 12 2 2 4-5"/></symbol>
+  </svg>
+  <div class="admin-shell">
+    <aside class="sidebar">
+      <a class="brand" href="{{ url_for('admin') }}" aria-label="VPN 聚合后台">
+        <span class="brand-mark"><svg><use href="#i-node"></use></svg></span>
+        <span>VPN 聚合后台</span>
+      </a>
+      <nav class="side-nav">
+        <span class="nav-label">运营</span>
+        <a class="{{ 'active' if request.endpoint == 'admin' else '' }}" href="{{ url_for('admin') }}"><svg><use href="#i-overview"></use></svg><span>运营总览</span></a>
+        <a class="{{ 'active' if request.endpoint == 'nodes_admin' else '' }}" href="{{ url_for('nodes_admin') }}"><svg><use href="#i-node"></use></svg><span>节点资产</span></a>
+        <a class="{{ 'active' if request.endpoint in ['users_admin', 'subscriber_detail'] else '' }}" href="{{ url_for('users_admin') }}"><svg><use href="#i-user"></use></svg><span>用户订阅</span></a>
+        <a class="{{ 'active' if request.endpoint == 'traffic_admin' else '' }}" href="{{ url_for('traffic_admin') }}"><svg><use href="#i-traffic"></use></svg><span>流量审计</span></a>
+        <span class="nav-label">订阅</span>
+        <a class="{{ 'active' if request.endpoint == 'subs_check_admin' else '' }}" href="{{ url_for('subs_check_admin') }}"><svg><use href="#i-shield"></use></svg><span>订阅策略</span></a>
+        <a class="{{ 'active' if request.endpoint == 'plans_admin' else '' }}" href="{{ url_for('plans_admin') }}"><svg><use href="#i-plan"></use></svg><span>套餐计费</span></a>
+        <span class="nav-label">系统</span>
+        <a class="{{ 'active' if request.endpoint == 'admin_checks' else '' }}" href="{{ url_for('admin_checks') }}"><svg><use href="#i-test"></use></svg><span>上线检查</span></a>
+        <a class="{{ 'active' if request.endpoint == 'backups_admin' else '' }}" href="{{ url_for('backups_admin') }}"><svg><use href="#i-backup"></use></svg><span>系统备份</span></a>
+        <a class="{{ 'active' if request.endpoint == 'audit_logs_admin' else '' }}" href="{{ url_for('audit_logs_admin') }}"><svg><use href="#i-log"></use></svg><span>审计日志</span></a>
+      </nav>
+      <section class="system-card">
+        <h2>系统状态</h2>
+        <p><span>控制服务</span><b class="{{ '' if sidebar_status.control.ok else 'warn-text' }}">{{ sidebar_status.control.label }}</b></p>
+        <p><span>数据库</span><b class="{{ '' if sidebar_status.database.ok else 'warn-text' }}">{{ sidebar_status.database.label }}</b></p>
+        <p><span>订阅输出</span><b class="{{ '' if sidebar_status.subscription.ok else 'warn-text' }}">{{ sidebar_status.subscription.label }}</b></p>
+      </section>
+      <small class="version">版本 {{ app_version }}</small>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="icon-button top-menu" type="button" data-menu-toggle aria-label="切换导航"><svg><use href="#i-menu"></use></svg></button>
+        <nav class="top-links" aria-label="主功能">
+          <a class="{{ 'active' if request.endpoint == 'admin' else '' }}" href="{{ url_for('admin') }}">总览</a>
+          <a class="{{ 'active' if request.endpoint == 'nodes_admin' else '' }}" href="{{ url_for('nodes_admin') }}">节点</a>
+          <a class="{{ 'active' if request.endpoint in ['users_admin', 'subscriber_detail'] else '' }}" href="{{ url_for('users_admin') }}">用户</a>
+          <a class="{{ 'active' if request.endpoint == 'traffic_admin' else '' }}" href="{{ url_for('traffic_admin') }}">审计</a>
+        </nav>
+        <form class="global-search" method="get" action="{{ url_for('admin_search') }}" data-global-search>
+          <svg><use href="#i-search"></use></svg>
+          <input name="q" type="search" autocomplete="off" placeholder="搜索用户、节点、IP、ASN...">
+          <kbd>/</kbd>
+          <div class="search-popover" data-search-popover></div>
+        </form>
+        <div class="top-actions">
+          <a class="ghost-button" href="{{ url_for('status') }}">状态</a>
+          <div class="account-menu" data-account-menu>
+            <button class="avatar-button" type="button" data-account-toggle aria-haspopup="true" aria-expanded="false">
+              <span class="avatar">{{ admin_username[:1]|upper }}</span><span class="account-name">{{ admin_username }}</span>
+            </button>
+            <div class="account-popover" data-account-popover>
+              <a href="{{ url_for('account_admin') }}"><b>账号安全</b><small>修改后台密码</small></a>
+              <a href="{{ url_for('admin_checks') }}"><b>上线检查</b><small>查看发布风险</small></a>
+              <a href="{{ url_for('logout') }}"><b>退出登录</b><small>结束当前会话</small></a>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <section class="content">
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}<div class="flash">{{ messages[0] }}</div>{% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+      </section>
+    </main>
+  </div>
+  <div class="toast" id="toast">已复制</div>
+  <script src="{{ url_for('static', filename='admin.js', v=app_version) }}" defer></script>
+</body>
+</html>

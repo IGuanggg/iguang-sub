@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>登录 · VPN 聚合后台</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg', v=app_version) }}">
+  <link rel="shortcut icon" href="{{ url_for('favicon') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='admin.css', v=app_version) }}">
+  <style>
+    body.login-body {
+      min-height: 100vh;
+      min-height: 100dvh;
+      margin: 0;
+      color: #111827;
+      background: #fbfcfe;
+      font: 1rem/1.5 "Microsoft YaHei", "Segoe UI", sans-serif;
+    }
+    .login-page {
+      position: relative;
+      min-height: 100vh;
+      min-height: 100dvh;
+      overflow: hidden;
+      isolation: isolate;
+    }
+    .login-page::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -2;
+      pointer-events: none;
+      background:
+        radial-gradient(ellipse 48% 42% at 18% 18%, rgba(96, 165, 250, .2), transparent 72%),
+        radial-gradient(ellipse 42% 34% at 82% 14%, rgba(45, 212, 191, .16), transparent 70%),
+        radial-gradient(ellipse 36% 30% at 46% 84%, rgba(129, 140, 248, .1), transparent 72%);
+    }
+    .login-page::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      background:
+        linear-gradient(90deg, rgba(148, 163, 184, .18) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(148, 163, 184, .18) 1px, transparent 1px);
+      background-size: 4rem 4rem;
+      mask-image: radial-gradient(ellipse 66% 56% at 50% 34%, #000 18%, transparent 100%);
+      opacity: .32;
+    }
+    .login-header {
+      width: calc(100% - 2rem);
+      max-width: 72rem;
+      min-height: 5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin: 0 auto;
+    }
+    .login-brand {
+      display: inline-flex;
+      align-items: center;
+      gap: .72rem;
+      color: #111827;
+      text-decoration: none;
+      font-weight: 900;
+      font-size: 1.02rem;
+    }
+    .login-brand .brand-mark {
+      width: 2rem;
+      height: 2rem;
+      background: linear-gradient(145deg, #3b82f6, #14b8a6);
+      box-shadow: 0 8px 26px rgba(59, 130, 246, .22);
+    }
+    .login-system-state {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      min-height: 2.25rem;
+      padding: 0 .72rem;
+      color: #475569;
+      border: 1px solid rgba(148, 163, 184, .26);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .62);
+      font-size: .78rem;
+      font-weight: 760;
+      backdrop-filter: blur(14px);
+    }
+    .login-system-state i {
+      position: relative;
+      width: .45rem;
+      height: .45rem;
+      border-radius: 50%;
+      background: #10b981;
+    }
+    .login-system-state i::after {
+      content: "";
+      position: absolute;
+      inset: -.22rem;
+      border-radius: 50%;
+      background: rgba(16, 185, 129, .18);
+      animation: login-pulse 2.2s ease-out infinite;
+    }
+    .login-system-state .state-short {
+      display: none;
+    }
+    .login-hero {
+      width: calc(100% - 2rem);
+      max-width: 72rem;
+      min-height: calc(100vh - 8rem);
+      min-height: calc(100dvh - 8rem);
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      align-items: center;
+      gap: clamp(2rem, 5vw, 5rem);
+      margin: 0 auto;
+      padding: 2rem 0 5rem;
+    }
+    .login-copy {
+      grid-column: span 6;
+      min-width: 0;
+    }
+    .login-eyebrow {
+      width: fit-content;
+      min-height: 2rem;
+      display: inline-flex;
+      align-items: center;
+      gap: .48rem;
+      margin-bottom: 1.2rem;
+      padding: 0 .72rem;
+      color: #2563eb;
+      border: 1px solid rgba(59, 130, 246, .2);
+      border-radius: 999px;
+      background: rgba(59, 130, 246, .055);
+      font-size: .75rem;
+      font-weight: 800;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, .03);
+    }
+    .login-eyebrow i {
+      position: relative;
+      width: .4rem;
+      height: .4rem;
+      border-radius: 50%;
+      background: #3b82f6;
+    }
+    .login-eyebrow i::after {
+      content: "";
+      position: absolute;
+      inset: -.2rem;
+      border-radius: 50%;
+      border: 1px solid rgba(59, 130, 246, .24);
+    }
+    .login-copy h1 {
+      max-width: 12ch;
+      margin: 0;
+      color: #0f172a;
+      font-size: clamp(2.7rem, 4.65vw, 4.25rem);
+      line-height: 1.12;
+      letter-spacing: 0;
+      font-weight: 900;
+    }
+    .login-copy h1 span {
+      color: transparent;
+      background: linear-gradient(92deg, #3b82f6 0%, #0ea5e9 44%, #14b8a6 100%);
+      background-clip: text;
+      -webkit-background-clip: text;
+    }
+    .login-copy > p {
+      max-width: 35rem;
+      margin: 1.25rem 0 0;
+      color: #64748b;
+      font-size: 1rem;
+      line-height: 1.8;
+    }
+    .login-capabilities {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .65rem;
+      margin-top: 2rem;
+    }
+    .login-capabilities span {
+      min-height: 2.45rem;
+      display: inline-flex;
+      align-items: center;
+      gap: .55rem;
+      padding: 0 .85rem;
+      color: #475569;
+      border: 1px solid rgba(148, 163, 184, .24);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .62);
+      font-size: .82rem;
+      font-weight: 760;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 1px 3px rgba(15, 23, 42, .03);
+    }
+    .login-capabilities b {
+      width: 1.55rem;
+      height: 1.55rem;
+      display: grid;
+      place-items: center;
+      color: #2563eb;
+      border-radius: 50%;
+      background: rgba(59, 130, 246, .09);
+      font-size: .68rem;
+    }
+    .login-auth-wrap {
+      grid-column: span 6;
+      min-width: 0;
+      display: flex;
+      justify-content: flex-end;
+    }
+    .login-terminal {
+      width: min(100%, 30rem);
+      overflow: hidden;
+      border: 1px solid rgba(148, 163, 184, .3);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .9);
+      box-shadow: 0 24px 65px -28px rgba(15, 23, 42, .28);
+      backdrop-filter: blur(20px);
+    }
+    .login-terminal-bar {
+      min-height: 3rem;
+      display: flex;
+      align-items: center;
+      gap: .42rem;
+      padding: 0 1rem;
+      color: #64748b;
+      border-bottom: 1px solid rgba(148, 163, 184, .2);
+      background: rgba(248, 250, 252, .74);
+      font: 700 .68rem/1 "Cascadia Code", Consolas, monospace;
+      text-transform: uppercase;
+    }
+    .login-terminal-bar i {
+      width: .52rem;
+      height: .52rem;
+      border-radius: 50%;
+      background: #d5dbe3;
+    }
+    .login-terminal-bar code {
+      margin-left: .45rem;
+      color: #64748b;
+      font-size: .68rem;
+    }
+    .login-terminal-bar span {
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+      margin-left: auto;
+      color: #059669;
+    }
+    .login-terminal-bar span::before {
+      content: "";
+      width: .4rem;
+      height: .4rem;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 0 .18rem rgba(16, 185, 129, .1);
+    }
+    .login-panel {
+      padding: clamp(1.75rem, 4vw, 2.75rem);
+    }
+    .login-panel-header {
+      margin-bottom: 1.75rem;
+    }
+    .login-panel-header small {
+      display: block;
+      margin-bottom: .5rem;
+      color: #2563eb;
+      font-size: .75rem;
+      font-weight: 850;
+    }
+    .login-panel h2 {
+      margin: 0;
+      color: #0f172a;
+      font-size: 1.75rem;
+      line-height: 1.2;
+      font-weight: 900;
+    }
+    .login-panel .login-hint {
+      margin: .48rem 0 0;
+      color: #64748b;
+      font-size: .9rem;
+    }
+    .login-form {
+      display: grid;
+      gap: 1rem;
+    }
+    .login-form label {
+      display: grid;
+      gap: .42rem;
+      color: #334155;
+      font-size: .85rem;
+      font-weight: 760;
+    }
+    .login-form input {
+      width: 100%;
+      min-height: 2.9rem;
+      padding: .72rem .85rem;
+      color: #111827;
+      border: 1px solid #dce3ea;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .82);
+      outline: 0;
+      transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
+    }
+    .login-form input::placeholder {
+      color: #a1aab7;
+    }
+    .login-form input:focus {
+      border-color: #3b82f6;
+      background: #fff;
+      box-shadow: 0 0 0 .2rem rgba(59, 130, 246, .1);
+    }
+    .password-field {
+      position: relative;
+      display: block;
+      width: 100%;
+    }
+    .password-field input {
+      padding-right: 3rem;
+    }
+    .login-body .password-toggle {
+      position: absolute;
+      top: 50%;
+      right: .35rem;
+      width: 2.2rem;
+      min-width: 2.2rem;
+      height: 2.2rem;
+      min-height: 2.2rem;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      transform: translateY(-50%);
+      color: #7c8796;
+      border: 0;
+      border-radius: 50%;
+      background: transparent;
+      cursor: pointer;
+    }
+    .login-body .password-toggle:hover,
+    .login-body .password-toggle.active {
+      color: #2563eb;
+      background: #eff6ff;
+    }
+    .login-body .login-submit {
+      width: 100%;
+      min-height: 2.9rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .5rem;
+      margin-top: .45rem;
+      padding: 0 .9rem;
+      color: #fff;
+      border: 0;
+      border-radius: 8px;
+      background: #2563eb;
+      font-size: .9rem;
+      font-weight: 850;
+      cursor: pointer;
+      box-shadow: 0 12px 28px rgba(37, 99, 235, .2);
+      transition: transform .16s ease, background .16s ease, box-shadow .16s ease;
+    }
+    .login-body .login-submit:hover {
+      transform: translateY(-1px);
+      background: #1d4ed8;
+      box-shadow: 0 16px 34px rgba(37, 99, 235, .24);
+    }
+    .login-submit svg,
+    .password-toggle svg {
+      width: 1rem;
+      height: 1rem;
+    }
+    .login-flash,
+    .login-warning {
+      margin: 0 0 1rem;
+    }
+    .login-warning {
+      color: #9a6700;
+      border-color: #fde68a;
+      background: #fffbeb;
+      font-size: .82rem;
+    }
+    .login-panel-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-top: 1.3rem;
+      color: #94a3b8;
+      font-size: .72rem;
+    }
+    .login-panel-foot span:first-child {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+    }
+    .login-panel-foot span:first-child::before {
+      content: "";
+      width: .4rem;
+      height: .4rem;
+      border-radius: 50%;
+      background: #10b981;
+    }
+    @keyframes login-pulse {
+      0% { transform: scale(.7); opacity: .6; }
+      70%, 100% { transform: scale(1.55); opacity: 0; }
+    }
+    @media (max-width: 900px) {
+      .login-hero {
+        grid-template-columns: 1fr;
+        min-height: auto;
+        gap: 2.25rem;
+        padding: 3rem 0 4rem;
+      }
+      .login-copy,
+      .login-auth-wrap {
+        grid-column: auto;
+      }
+      .login-copy {
+        text-align: center;
+      }
+      .login-eyebrow {
+        margin-inline: auto;
+      }
+      .login-copy h1,
+      .login-copy > p {
+        margin-inline: auto;
+      }
+      .login-capabilities {
+        justify-content: center;
+      }
+      .login-auth-wrap {
+        justify-content: center;
+      }
+    }
+    @media (max-width: 540px) {
+      .login-header {
+        min-height: 4.4rem;
+      }
+      .login-system-state {
+        padding: 0 .6rem;
+        font-size: .72rem;
+      }
+      .login-system-state .state-long {
+        display: none;
+      }
+      .login-system-state .state-short {
+        display: inline;
+      }
+      .login-hero {
+        width: calc(100% - 1.5rem);
+        max-width: 72rem;
+        gap: 1.8rem;
+        padding: 2rem 0 2.5rem;
+      }
+      .login-copy h1 {
+        max-width: none;
+        font-size: clamp(2.35rem, 12vw, 3rem);
+      }
+      .login-copy > p {
+        font-size: .92rem;
+        line-height: 1.7;
+        overflow-wrap: anywhere;
+      }
+      .login-capabilities {
+        display: grid;
+        grid-template-columns: 1fr;
+        margin-top: 1.4rem;
+      }
+      .login-capabilities span {
+        justify-content: center;
+      }
+      .login-panel {
+        padding: 1.4rem;
+      }
+      .login-panel h2 {
+        font-size: 1.55rem;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .login-system-state i::after {
+        animation: none;
+      }
+    }
+  </style>
+</head>
+<body class="login-body">
+  <div class="login-page">
+    <header class="login-header">
+      <a class="login-brand" href="{{ url_for('login') }}" aria-label="VPN 聚合后台">
+        <span class="brand-mark">V</span>
+        <b>VPN 聚合后台</b>
+      </a>
+      <span class="login-system-state"><i></i><span class="state-long">控制服务运行中</span><span class="state-short">运行中</span></span>
+    </header>
+
+    <main class="login-hero">
+      <section class="login-copy" aria-label="产品概览">
+        <span class="login-eyebrow"><i></i>代理订阅运营控制台</span>
+        <h1>一个入口<br><span>管理订阅资产</span></h1>
+        <p>聚合上游机场、治理节点质量、发放会员订阅，让全量节点、优选策略与运行状态在一个后台里保持一致。</p>
+        <div class="login-capabilities" aria-label="核心能力">
+          <span><b>01</b>上游聚合</span>
+          <span><b>02</b>节点优选</span>
+          <span><b>03</b>会员发放</span>
+        </div>
+      </section>
+
+      <section class="login-auth-wrap" aria-labelledby="login-title">
+        <div class="login-terminal">
+          <div class="login-terminal-bar">
+            <i></i><i></i><i></i>
+            <code>auth / admin</code>
+            <span>secure</span>
+          </div>
+          <div class="login-panel">
+            <div class="login-panel-header">
+              <small>欢迎回来</small>
+              <h2 id="login-title">登录管理后台</h2>
+              <p class="login-hint">输入管理员账户以继续。</p>
+            </div>
+            {% with messages = get_flashed_messages() %}
+              {% if messages %}<div class="flash login-flash">{{ messages[0] }}</div>{% endif %}
+            {% endwith %}
+            {% if default_password %}
+              <div class="warning-note login-warning">当前仍在使用默认密码，请登录后尽快修改。</div>
+            {% endif %}
+            <form method="post" class="login-form">
+              <label>
+                <span>管理员账户</span>
+                <input name="username" value="{{ username }}" autocomplete="username" placeholder="请输入管理员账户">
+              </label>
+              <label>
+                <span>密码</span>
+                <span class="password-field">
+                  <input id="login-password" name="password" type="password" autocomplete="current-password" placeholder="请输入密码">
+                  <button type="button" class="password-toggle" data-password-toggle aria-label="显示密码">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/>
+                      <circle cx="12" cy="12" r="2.5"/>
+                    </svg>
+                  </button>
+                </span>
+              </label>
+              <button class="login-submit" type="submit">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
+                登录
+              </button>
+            </form>
+            <div class="login-panel-foot">
+              <span>仅限授权管理员</span>
+              <span>{{ app_version }}</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    (() => {
+      const button = document.querySelector("[data-password-toggle]");
+      const input = document.getElementById("login-password");
+      button?.addEventListener("click", () => {
+        const showing = input.type === "text";
+        input.type = showing ? "password" : "text";
+        button.setAttribute("aria-label", showing ? "显示密码" : "隐藏密码");
+        button.classList.toggle("active", !showing);
+      });
+    })();
+  </script>
+</body>
+</html>

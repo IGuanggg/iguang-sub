@@ -1,0 +1,105 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<div class="page-head">
+  <div><h1>用户与套餐</h1><p>用户订阅、套餐模板、到期预警和流量预警集中处理。</p></div>
+  <div class="head-actions"><a class="primary-button" href="#new-user">新增用户</a><a class="secondary-button" href="{{ url_for('export_subscribers') }}">导出</a><a class="secondary-button" href="{{ url_for('download_database_backup') }}">备份</a></div>
+</div>
+
+<section class="workspace with-detail">
+  <div class="workspace-main">
+    <section class="metric-grid four">
+      <article class="metric-card teal"><span class="metric-icon"><svg><use href="#i-user"></use></svg></span><small>总用户</small><strong>{{ summary.total }}</strong><p>正常 {{ summary.active }}</p></article>
+      <article class="metric-card green"><span class="metric-icon"><svg><use href="#i-plan"></use></svg></span><small>付费用户</small><strong>{{ summary.active }}</strong><p>可用订阅数</p></article>
+      <article class="metric-card amber"><span class="metric-icon"><svg><use href="#i-log"></use></svg></span><small>即将到期</small><strong>{{ summary.warning }}</strong><p>需要续费提醒</p></article>
+      <article class="metric-card red"><span class="metric-icon"><svg><use href="#i-trash"></use></svg></span><small>风险账号</small><strong>{{ summary.expired }}</strong><p>过期或流量用完</p></article>
+    </section>
+
+    <article class="panel" id="new-user">
+      <div class="section-title"><h2>新增用户</h2><span>创建专属订阅</span></div>
+      <form class="form-grid dense" method="post" action="{{ url_for('create_subscriber') }}">
+        <input name="name" placeholder="用户名称">
+        <select name="plan_id">
+          <option value="">手动填写套餐</option>
+          {% for plan in plans %}<option value="{{ plan.id }}">{{ plan.name }} · {{ plan.days }} 天 · {{ plan.total_label }}</option>{% endfor %}
+        </select>
+        <input name="expire_at" type="date">
+        <input name="total_gb" inputmode="decimal" placeholder="总流量 GB，0 为不限">
+        <input name="traffic_key" placeholder="流量识别名 / Xray email">
+        <input name="note" placeholder="备注 / 订单号">
+        <button type="submit">创建用户</button>
+      </form>
+    </article>
+
+    {% if warnings %}
+    <article class="panel warning-band">
+      <div class="section-title"><h2>到期 / 流量预警</h2><span>{{ warnings|length }} 个</span></div>
+      <div class="alert-list grid-alerts">
+        {% for user in warnings[:6] %}
+        <a class="alert-item" href="{{ url_for('subscriber_detail', user_id=user.id) }}">
+          <span class="badge warn">预警</span>
+          <div><b>{{ user.name }}</b><small>{{ user.warning_label }} · 剩余 {{ user.remaining_label }}</small></div>
+        </a>
+        {% endfor %}
+      </div>
+    </article>
+    {% endif %}
+
+    <article class="panel">
+      <div class="section-title stacked-title">
+        <h2>用户列表</h2>
+        <form class="inline-filter" method="get" action="{{ url_for('users_admin') }}" data-auto-submit>
+          <input name="q" value="{{ filters.q }}" placeholder="搜索用户 ID / 备注 / 识别名">
+          <select name="status">
+            <option value="">全部</option>
+            <option value="warning" {% if filters.status == "warning" %}selected{% endif %}>需要处理</option>
+            <option value="missing_traffic_key" {% if filters.status == "missing_traffic_key" %}selected{% endif %}>未设置 traffic_key</option>
+            {% for item in ["正常", "已过期", "流量用完", "停用", "日期错误"] %}
+            <option value="{{ item }}" {% if filters.status == item %}selected{% endif %}>{{ item }}</option>
+            {% endfor %}
+          </select>
+          <button class="secondary-button" type="submit"><svg><use href="#i-filter"></use></svg>筛选</button>
+          <a class="secondary-button" href="{{ url_for('users_admin') }}">清空</a>
+        </form>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>用户</th><th>套餐</th><th>已用流量</th><th>到期时间</th><th>状态</th><th>风险</th><th>操作</th></tr></thead>
+          <tbody>
+            {% for user in users %}
+            <tr>
+              <td><b><a href="{{ url_for('subscriber_detail', user_id=user.id) }}">{{ user.name }}</a></b><small>{{ user.traffic_key or "未设置识别名" }}</small></td>
+              <td>{{ user.note or "手动套餐" }}</td>
+              <td>{{ user.used_label }} / {{ user.total_label }}<span class="mini-progress wide"><i style="width:{{ user.usage_percent }}%"></i></span></td>
+              <td>{{ user.expire_at or "不限" }}</td>
+              <td><span class="badge {{ 'ok' if user.status == '正常' else 'danger' if user.status in ['已过期','流量用完'] else 'warn' }}">{{ user.status }}</span></td>
+              <td><span class="badge {{ 'warn' if user.is_warning else 'ok' }}">{{ user.warning_label or "低风险" }}</span></td>
+              <td class="actions-cell">
+                <button class="icon-action" type="button" data-copy="{{ base }}{{ user.links.clash }}" title="复制 Clash"><svg><use href="#i-copy"></use></svg></button>
+                <a class="icon-action" href="{{ url_for('subscriber_detail', user_id=user.id) }}" title="详情"><svg><use href="#i-edit"></use></svg></a>
+                <form method="post" action="{{ url_for('reset_subscriber_token', user_id=user.id) }}" onsubmit="return confirm('重置后旧订阅链接会失效，确定吗？')"><button class="icon-action" title="重置"><svg><use href="#i-refresh"></use></svg></button></form>
+                <form method="post" action="{{ url_for('delete_subscriber', user_id=user.id) }}" onsubmit="return confirm('确定删除用户 {{ user.name }} 吗？删除前会自动备份用户列表。')"><button class="icon-action danger-text" title="删除"><svg><use href="#i-trash"></use></svg></button></form>
+              </td>
+            </tr>
+            {% else %}<tr><td colspan="7">还没有用户。</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% include "admin/pagination.html" %}
+    </article>
+  </div>
+
+  <aside class="detail-panel plans-panel">
+    <div class="section-title"><h2>套餐方案</h2><a href="{{ url_for('plans_admin') }}">编辑</a></div>
+    {% for plan in plans %}
+    <article class="plan-card">
+      <div><h3>{{ plan.name }}</h3><strong>{{ plan.total_label }}</strong></div>
+      <p>{{ plan.days }} 天 · {{ plan.note or "标准套餐" }}</p>
+      <button class="secondary-button" type="button" data-copy="{{ plan.name }} / {{ plan.days }} 天 / {{ plan.total_label }}">复制方案</button>
+    </article>
+    {% else %}
+    <div class="empty">还没有套餐模板。</div>
+    {% endfor %}
+    <a class="primary-button full" href="{{ url_for('plans_admin') }}">新增套餐</a>
+  </aside>
+</section>
+{% endblock %}
