@@ -4827,6 +4827,13 @@ def create_upstream():
             flash("上传文件太大，最多支持 5MB。")
             return redirect(url_for("nodes_admin"))
     content = uploaded_content.strip() or pasted_content
+    # [补丁] 粘贴内容只有一行且是 http(s) 链接时，自动当作远程链接源处理，
+    # 避免把订阅 URL 误判成"文件/粘贴"源后无法再编辑链接。
+    if not uploaded_content and pasted_content and not url:
+        _pasted_lines = [ln.strip() for ln in pasted_content.splitlines() if ln.strip()]
+        if len(_pasted_lines) == 1 and _pasted_lines[0].startswith(("http://", "https://")):
+            url = _pasted_lines[0]
+            content = ""
     source_type = "file" if content else "url"
     if source_type == "url" and not url.startswith(("http://", "https://")):
         flash("请填写 http:// 或 https:// 开头的订阅链接，或者上传订阅文件。")
